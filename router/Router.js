@@ -241,6 +241,8 @@ export default class Router {
         }
 
         const ctx = this.#buildContext(pathname, params);
+        const navState = history.state || {};
+        const variant = navState.trans || "fade"; // assume 'fade' if not specified
 
         // Guards
         const parents = route.parents || [];
@@ -297,48 +299,72 @@ export default class Router {
 
         console.log("Final HTML before wrapping:", html);
 
-        // Create a slot wrapper for the new view (layout + leaf)
+
+        // ----- create the new composed HTML as before -----
         const newSlot = document.createElement("div");
         newSlot.className = "view-slot";
         newSlot.innerHTML = html;
 
-        // Ensure the mount is a positioning context for overlapping slots
+        // ensure the mount is positioned for overlap (harmless in fade too)
         const mount = this.#mountEl;
         if (getComputedStyle(mount).position === "static") {
             mount.style.position = "relative";
         }
 
-        // Measure & lock container height to prevent jump during overlap
+        // measure & lock container height to prevent jumps during overlap
         const oldSlot = mount.querySelector(".view-slot");
-        const mountRect = mount.getBoundingClientRect();
-        const oldHeight = oldSlot ? oldSlot.getBoundingClientRect().height : mountRect.height;
-        if (oldHeight > 0) mount.style.minHeight = oldHeight + "px";
+        const oldH = oldSlot ? oldSlot.getBoundingClientRect().height : mount.getBoundingClientRect().height;
+        if (oldH > 0) mount.style.minHeight = oldH + "px";
 
-        // Append new slot (it will overlap the old one via CSS)
-        mount.appendChild(newSlot);
+        // ---- Variant-aware sequencing ----
+        if (variant === "fade") {
+            // SEQUENTIAL FADE:
+            // 1) OUT the old slot to transparent, remove it
+            if (this.#transition && oldSlot) {
+                await Promise.resolve(this.#transition(oldSlot, "out"));
+                oldSlot.remove();
+            } else if (oldSlot) {
+                oldSlot.remove();
+            }
 
-        // OUT (old)  →  remove after transition
-        if (this.#transition && oldSlot) {
-            await Promise.resolve(this.#transition(oldSlot, "out"));
-            oldSlot.remove();
-        } else if (oldSlot) {
-            oldSlot.remove();
+            // 2) Append new slot (starts invisible per CSS), then IN
+            mount.appendChild(newSlot);
+
+            // mount hooks for new content
+            this.#currentLayouts = layoutInsts;
+            for (const inst of this.#currentLayouts) inst.mount?.();
+            this.#currentView = leaf;
+            leaf.mount?.();
+
+            if (this.#transition) {
+                await Promise.resolve(this.#transition(newSlot, "in"));
+            }
+        } else {
+            // OVERLAP PUSH (slide / zoom):
+            // 1) Append new slot (it starts offscreen for slide)
+            mount.appendChild(newSlot);
+
+            // 2) OUT the old slot while the new moves IN, then remove old
+            if (this.#transition && oldSlot) {
+                await Promise.resolve(this.#transition(oldSlot, "out"));
+                oldSlot.remove();
+            } else if (oldSlot) {
+                oldSlot.remove();
+            }
+
+            // 3) mount hooks
+            this.#currentLayouts = layoutInsts;
+            for (const inst of this.#currentLayouts) inst.mount?.();
+            this.#currentView = leaf;
+            leaf.mount?.();
+
+            if (this.#transition) {
+                await Promise.resolve(this.#transition(newSlot, "in"));
+            }
         }
 
-        // Save & mount layouts and leaf for the *new* content
-        this.#currentLayouts = layoutInsts;
-        for (const inst of this.#currentLayouts) inst.mount?.();
-        this.#currentView = leaf;
-        leaf.mount?.();
-
-        // IN (new)
-        if (this.#transition) {
-            await Promise.resolve(this.#transition(newSlot, "in"));
-        }
-
-        // Release the temporary height lock
+        // release height lock
         mount.style.minHeight = "";
-
 
     }
 }
