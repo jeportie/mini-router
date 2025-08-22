@@ -54,12 +54,15 @@ export default class Router {
     #currentView = null;
     #started = false;
     #currentLayouts = [];
+    #renderId = 0;
+    #isAnimating = false;
 
     // ---------- Event handlers (bound once) ----------
     #onPopState = () => { this.#render(); };
 
     #onClick = (event) => {
         // Only normal left-clicks
+        if (this.#isAnimating) return;
         if (event.defaultPrevented) return;
         if (event.button !== 0) return;
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -163,6 +166,7 @@ export default class Router {
      *   - state:   arbitrary serializable state stored in history.state
      */
     async navigateTo(url, opts) {
+        if (this.#isAnimating) return;
         // Allow user-defined guard/confirm (sync or async). Any falsey return cancels.
         if (this.#onBeforeNavigate) {
             const result = await this.#onBeforeNavigate(url);
@@ -229,6 +233,9 @@ export default class Router {
      * - Transition in (optional)
      */
     async #render() {
+        const rid = ++this.#renderId;
+        this.#isAnimating = true;
+
         const pathname = normalize(window.location.pathname);
 
         const m = this.#match(pathname);
@@ -237,6 +244,7 @@ export default class Router {
 
         if (!route) {
             this.#mountEl.innerHTML = "<h1>Not Found</h1>";
+            this.#isAnimating = false;
             return;
         }
 
@@ -247,9 +255,11 @@ export default class Router {
         // Guards
         const parents = route.parents || [];
         const guardRes = await runGuards(parents, route, ctx);
+        if (rid !== this.#renderId) return;
         if (guardRes.action === "block") return;
         if (guardRes.action === "redirect") {
             await this.navigateTo(guardRes.to, { replace: true });
+            this.#isAnimating = false;
             return;
         }
 
@@ -275,30 +285,30 @@ export default class Router {
         for (const p of parents) {
             if (p.layout) {
                 const LayoutCtor = await ensureComponent(p.layout);
+                if (rid !== this.#renderId) return;
                 layoutInsts.push(new LayoutCtor(ctx));
             }
         }
 
         const LeafCtor = await ensureComponent(route.component || route.view);
+        if (rid !== this.#renderId) return;
+
         const leaf = new LeafCtor(ctx);
-
-        // Render leaf first
         let html = await leaf.getHTML();
-        html = typeof html === "string" ? html : String(html);
+        if (rid !== this.#renderId) return;
 
+        html = typeof html === "string" ? html : String(html);
         // wrap inner -> outer
         for (let i = layoutInsts.length - 1; i >= 0; i--) {
             const inst = layoutInsts[i];
             let shell = await inst.getHTML();
+            if (rid !== this.#renderId) return;
             shell = typeof shell === "string" ? shell : String(shell);
             if (!shell.includes("<!-- router-slot -->")) {
                 throw new Error("Layout missing <!-- router-slot -->");
             }
             html = shell.replace("<!-- router-slot -->", html);
         }
-
-        console.log("Final HTML before wrapping:", html);
-
 
         // ----- create the new composed HTML as before -----
         const newSlot = document.createElement("div");
@@ -316,12 +326,17 @@ export default class Router {
         const oldH = oldSlot ? oldSlot.getBoundingClientRect().height : mount.getBoundingClientRect().height;
         if (oldH > 0) mount.style.minHeight = oldH + "px";
 
+
+        // guard: if this render got superseded already, bail before DOM ops
+        if (rid !== this.#renderId) { this.#isAnimating = false; return; }
+
         // ---- Variant-aware sequencing ----
         if (variant === "fade") {
             // SEQUENTIAL FADE:
             // 1) OUT the old slot to transparent, remove it
             if (this.#transition && oldSlot) {
                 await Promise.resolve(this.#transition(oldSlot, "out"));
+                if (rid !== this.#renderId) { this.#isAnimating = false; return; }
                 oldSlot.remove();
             } else if (oldSlot) {
                 oldSlot.remove();
@@ -338,6 +353,7 @@ export default class Router {
 
             if (this.#transition) {
                 await Promise.resolve(this.#transition(newSlot, "in"));
+                if (rid !== this.#renderId) { this.#isAnimating = false; return; }
             }
         } else {
             // OVERLAP PUSH (slide / zoom):
@@ -347,9 +363,16 @@ export default class Router {
             // 2) OUT the old slot while the new moves IN, then remove old
             if (this.#transition && oldSlot) {
                 await Promise.resolve(this.#transition(oldSlot, "out"));
+                if (rid !== this.#renderId) { this.#isAnimating = false; return; }
                 oldSlot.remove();
             } else if (oldSlot) {
                 oldSlot.remove();
+            }
+
+            // (Hard cap) if anything else slipped in, keep last 2 only
+            const slots = mount.querySelectorAll(".view-slot");
+            if (slots.length > 2) {
+                for (let i = 0; i < slots.length - 2; i++) slots[i].remove();
             }
 
             // 3) mount hooks
@@ -360,11 +383,12 @@ export default class Router {
 
             if (this.#transition) {
                 await Promise.resolve(this.#transition(newSlot, "in"));
+                if (rid !== this.#renderId) { this.#isAnimating = false; return; }
             }
         }
 
         // release height lock
         mount.style.minHeight = "";
-
+        this.#isAnimating = false;
     }
 }
