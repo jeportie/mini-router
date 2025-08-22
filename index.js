@@ -18,4 +18,4 @@ export { createRouteTransition } from "./router/transition.js";
 export { defineMiniRouter } from "./wc/mini-router.js";
 
 export { default as AbstractView } from "./views/AbstractView.js";
-export { default as AbstractLayout } from "./views/layouts/AbstractLayout.js";
+export { default as AbstractLayout } from "./views/AbstractLayout.js";
