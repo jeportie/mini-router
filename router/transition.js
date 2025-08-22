@@ -133,6 +133,7 @@ export function createRouteTransition(defaultVariant = "slide") {
 
                 // Next frame: activate transition
                 requestAnimationFrame(() => {
+                    el.offsetWidth;
                     el.classList.add("route-leave-active");
                     el.addEventListener("transitionend", onEnd, { once: true });
 
@@ -151,6 +152,7 @@ export function createRouteTransition(defaultVariant = "slide") {
 
                 // Next frame: activate transition
                 requestAnimationFrame(() => {
+                    el.offsetWidth;
                     el.classList.add("route-enter-active");
                     el.addEventListener("transitionend", onEnd, { once: true });
 
