@@ -297,33 +297,48 @@ export default class Router {
 
         console.log("Final HTML before wrapping:", html);
 
-        // Create a slot wrapper for the new view
+        // Create a slot wrapper for the new view (layout + leaf)
         const newSlot = document.createElement("div");
         newSlot.className = "view-slot";
         newSlot.innerHTML = html;
 
-        // Append new slot *before* removing old
-        this.#mountEl.appendChild(newSlot);
+        // Ensure the mount is a positioning context for overlapping slots
+        const mount = this.#mountEl;
+        if (getComputedStyle(mount).position === "static") {
+            mount.style.position = "relative";
+        }
 
-        // Transition OUT old slot if present
-        let oldSlot = this.#mountEl.querySelector(".view-slot:not(:last-child)");
+        // Measure & lock container height to prevent jump during overlap
+        const oldSlot = mount.querySelector(".view-slot");
+        const mountRect = mount.getBoundingClientRect();
+        const oldHeight = oldSlot ? oldSlot.getBoundingClientRect().height : mountRect.height;
+        if (oldHeight > 0) mount.style.minHeight = oldHeight + "px";
+
+        // Append new slot (it will overlap the old one via CSS)
+        mount.appendChild(newSlot);
+
+        // OUT (old)  →  remove after transition
         if (this.#transition && oldSlot) {
             await Promise.resolve(this.#transition(oldSlot, "out"));
-            oldSlot.remove(); // remove old after fade-out
+            oldSlot.remove();
         } else if (oldSlot) {
             oldSlot.remove();
         }
 
-        // Save & mount layouts
+        // Save & mount layouts and leaf for the *new* content
         this.#currentLayouts = layoutInsts;
         for (const inst of this.#currentLayouts) inst.mount?.();
         this.#currentView = leaf;
         leaf.mount?.();
 
-        // Transition IN new slot
+        // IN (new)
         if (this.#transition) {
             await Promise.resolve(this.#transition(newSlot, "in"));
         }
+
+        // Release the temporary height lock
+        mount.style.minHeight = "";
+
 
     }
 }
