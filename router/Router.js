@@ -301,9 +301,10 @@ export default class Router {
         this.#currentView = leaf;
         leaf.mount?.();
 
-        // Transition in (optional)
-        if (this.#transition) {
-            await Promise.resolve(this.#transition(this.#mountEl, "in"));
+        // Transition out
+        const hasPrev = this.#currentView !== null || this.#mountEl.childElementCount > 0;
+        if (this.#transition && hasPrev) {
+            await Promise.resolve(this.#transition(this.#mountEl, "out"));
         }
     }
 }
