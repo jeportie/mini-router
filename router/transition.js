@@ -55,12 +55,14 @@ function getMaxTransitionMs(el) {
 }
 
 /**
- * Create a route transition handler that toggles CSS classes to animate page changes.
+ * Create a route transition handler that toggles CSS classes on
+ * `.view-slot` containers to animate page changes.
+ *
  * You can override the variant per navigation by passing state to history:
  *   `router.navigateTo(url, { state: { trans: "fade" } })`
  *
  * Expected CSS (example):
- * - Base classes toggled by JS on the mount element (e.g., #app):
+ * - Classes toggled by JS on each `.view-slot` wrapper:
  *   - `route-leave`, `route-leave-active`, `route-enter`, `route-enter-active`
  * - Variant is exposed via `[data-trans="slide" | "fade" | "zoom"]` so your
  *   CSS can style transitions differently per variant.
@@ -73,9 +75,9 @@ function getMaxTransitionMs(el) {
  */
 export function createRouteTransition(defaultVariant = "slide") {
     /**
-     * Run a single transition phase on an element.
+     * Run a single transition phase on a `.view-slot` element.
      *
-     * @param {HTMLElement} el The container element to animate (e.g., your #app).
+     * @param {HTMLElement} el The slot element to animate.
      * @param {"out" | "in"} phase Whether we're animating the old view out or the new view in.
      * @returns {Promise<void>} Resolves when the CSS transition ends (or immediately if none).
      */

@@ -295,18 +295,32 @@ export default class Router {
             html = shell.replace("<!-- router-slot -->", html);
         }
 
-        // Mount new DOM
-        this.#mountEl.innerHTML = html;
+        // Create a slot wrapper for the new view
+        const newSlot = document.createElement("div");
+        newSlot.className = "view-slot";
+        newSlot.innerHTML = html;
+
+        // Append new slot *before* removing old
+        this.#mountEl.appendChild(newSlot);
+
+        // Transition OUT old slot if present
+        let oldSlot = this.#mountEl.querySelector(".view-slot:not(:last-child)");
+        if (this.#transition && oldSlot) {
+            await Promise.resolve(this.#transition(oldSlot, "out"));
+            oldSlot.remove(); // remove old after fade-out
+        } else if (oldSlot) {
+            oldSlot.remove();
+        }
+
         // Save & mount layouts
         this.#currentLayouts = layoutInsts;
-        // Mount layouts (outer -> inner) so parents can wire global UI first
         for (const inst of this.#currentLayouts) inst.mount?.();
         this.#currentView = leaf;
         leaf.mount?.();
 
-        // Transition IN
+        // Transition IN new slot
         if (this.#transition) {
-            await Promise.resolve(this.#transition(this.#mountEl, "in"));
+            await Promise.resolve(this.#transition(newSlot, "in"));
         }
 
     }
