@@ -135,7 +135,6 @@ export default class Router {
      * - Performs initial render.
      */
     start() {
-        console.log("in start router function");
         if (this.#started) return;
         this.#started = true;
         window.addEventListener("popstate", this.#onPopState);
