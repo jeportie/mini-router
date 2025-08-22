@@ -33,7 +33,7 @@ export default class AbstractLayout {
      * @returns {*}
      */
     get ctx() {
-        return this.#ctx;
+        return (this.#ctx);
     }
 
     /**
@@ -50,7 +50,7 @@ export default class AbstractLayout {
      * @returns {Promise<string>}
      */
     async getHTML() {
-        return "<!-- router-slot -->";
+        return ("<!-- router-slot -->");
     }
 
     /**

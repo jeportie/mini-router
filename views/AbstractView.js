@@ -69,7 +69,7 @@ export default class AbstractView {
      * @returns {Promise<string>}
      */
     async getHTML() {
-        return "";
+        return ("");
     }
 
     /**
