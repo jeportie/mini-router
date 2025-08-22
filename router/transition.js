@@ -100,20 +100,6 @@ export function createRouteTransition(defaultVariant = "slide") {
             return Promise.resolve();
         }
 
-        console.log("[trans] phase:", phase,
-            "el:", el.id || el.tagName,
-            "variant:", variant,
-            "classes(before):", el.className
-        );
-        setTimeout(() => {
-            const cs = getComputedStyle(el);
-            console.log("[trans] active:", phase,
-                "classes:", el.className,
-                "dur:", cs.transitionDuration,
-                "prop:", cs.transitionProperty
-            );
-        }, 50);
-
         return new Promise((resolve) => {
             let done = false;
             /** Ensure we only resolve once, and clean up classes for the phase. */
