@@ -295,6 +295,8 @@ export default class Router {
             html = shell.replace("<!-- router-slot -->", html);
         }
 
+        console.log("Final HTML before wrapping:", html);
+
         // Create a slot wrapper for the new view
         const newSlot = document.createElement("div");
         newSlot.className = "view-slot";
