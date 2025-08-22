@@ -1,5 +1,5 @@
 {
-    "name": "@your-scope/mini-spa",
+    "name": "@jeportie/mini-spa",
     "version": "0.1.0",
     "description": "Tiny framework-agnostic SPA router with layouts, guards, transitions and an optional Web Component wrapper.",
     "type": "module",
