@@ -255,9 +255,9 @@ export default class Router {
         const hasPrev = this.#currentView !== null || this.#mountEl.childElementCount > 0;
 
         // Transition OUT only if there was a previous view
-        if (this.#transition && hasPrev) {
-            await Promise.resolve(this.#transition(this.#mountEl, "out"));
-        }
+        //     if (this.#transition && hasPrev) {
+        //         await Promise.resolve(this.#transition(this.#mountEl, "out"));
+        //     }
 
         // 1) destroy previous leaf view
         this.#currentView?.destroy?.();
