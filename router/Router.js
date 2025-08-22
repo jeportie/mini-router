@@ -251,8 +251,11 @@ export default class Router {
             return;
         }
 
-        // Transition out (optional)
-        if (this.#transition) {
+        // Was there content already mounted?
+        const hasPrev = this.#currentView !== null || this.#mountEl.childElementCount > 0;
+
+        // Transition OUT only if there was a previous view
+        if (this.#transition && hasPrev) {
             await Promise.resolve(this.#transition(this.#mountEl, "out"));
         }
 
@@ -301,10 +304,10 @@ export default class Router {
         this.#currentView = leaf;
         leaf.mount?.();
 
-        // Transition out
-        const hasPrev = this.#currentView !== null || this.#mountEl.childElementCount > 0;
-        if (this.#transition && hasPrev) {
-            await Promise.resolve(this.#transition(this.#mountEl, "out"));
+        // Transition IN
+        if (this.#transition) {
+            await Promise.resolve(this.#transition(this.#mountEl, "in"));
         }
+
     }
 }
