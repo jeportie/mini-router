@@ -124,47 +124,35 @@ export function createRouteTransition(defaultVariant = "slide") {
                 if (evt.target === el) finish();
             };
 
-            // Compute a fallback timeout equal to the maximum transition on the element.
-            const totalMs = getMaxTransitionMs(el);
-
-            // Phase toggling
+            // Prep phase classes
             if (phase === "out") {
-                // Prepare OUT phase
                 el.classList.remove("route-enter", "route-enter-active");
                 el.classList.add("route-leave");
-
-                // Next frame: activate transition
-                requestAnimationFrame(() => {
-                    el.offsetWidth;
-                    el.classList.add("route-leave-active");
-                    el.addEventListener("transitionend", onEnd, { once: true });
-
-                    // If no transition is actually applied, resolve on the next frame
-                    if (totalMs === 0) {
-                        requestAnimationFrame(finish);
-                    } else {
-                        // Safety timeout (totalMs + tiny buffer)
-                        setTimeout(finish, totalMs + 50);
-                    }
-                });
             } else {
-                // Prepare IN phase
                 el.classList.remove("route-leave", "route-leave-active");
                 el.classList.add("route-enter");
-
-                // Next frame: activate transition
-                requestAnimationFrame(() => {
-                    el.offsetWidth;
-                    el.classList.add("route-enter-active");
-                    el.addEventListener("transitionend", onEnd, { once: true });
-
-                    if (totalMs === 0) {
-                        requestAnimationFrame(finish);
-                    } else {
-                        setTimeout(finish, totalMs + 50);
-                    }
-                });
             }
+
+            // Next frame: activate transition, THEN measure duration
+            requestAnimationFrame(() => {
+                // force layout so initial class takes effect
+                void el.offsetWidth;
+
+                if (phase === "out") el.classList.add("route-leave-active");
+                else el.classList.add("route-enter-active");
+
+                el.addEventListener("transitionend", onEnd, { once: true });
+
+                // IMPORTANT: measure after active class is applied
+                const totalMs = getMaxTransitionMs(el);
+
+                if (totalMs === 0) {
+                    // No transition declared → finish next frame to avoid flicker
+                    requestAnimationFrame(finish);
+                } else {
+                    setTimeout(finish, totalMs + 50);
+                }
+            });
         });
     };
 }
