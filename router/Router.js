@@ -10,8 +10,8 @@
 //                                                                            //
 // ************************************************************************** //
 
-import { pathToRegex } from "./routerTools.js";
-import { expandRoutes } from "./routerInternals.js";
+import { pathToRegex } from "./internals/routerTools.js";
+import { expandRoutes } from "./internals/routerInternals.js";
 import { renderPipeline } from "./internals/render.js";
 import { createHandlers } from "./internals/events.js";
 

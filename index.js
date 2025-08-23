@@ -12,7 +12,7 @@
 
 // Public API
 export { default as Router } from "./router/Router.js";
-export { createRouteTransition } from "./router/transition.js";
+export { createRouteTransition } from "./router/transitions/tailwind.js";
 
 // Web Component
 export { defineMiniRouter } from "./wc/mini-router.js";

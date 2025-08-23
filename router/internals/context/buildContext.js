@@ -10,7 +10,7 @@
 //                                                                            //
 // ************************************************************************** //
 
-import { parseQuery } from "../../routerTools.js";
+import { parseQuery } from "../routerTools.js";
 
 /**
  * Build the view context from URL parts and history state.

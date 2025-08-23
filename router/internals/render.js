@@ -10,8 +10,8 @@
 //                                                                            //
 // ************************************************************************** //
 
-import { normalize } from "../routerTools.js";
-import { ensureComponent, runGuards } from "../routerInternals.js";
+import { normalize } from "./routerTools.js";
+import { ensureComponent, runGuards } from "./routerInternals.js";
 import { matchPathname } from "./matching/matchPathname.js";
 import { buildContext } from "./context/buildContext.js";
 
