@@ -121,6 +121,11 @@ export default class Router {
      */
     async navigateTo(url, opts) {
         if (this.#state.busy) return;
+        const next = new URL(url, location.origin);
+        const curr = location;
+        if (next.pathname === curr.pathname && next.search === curr.search && next.hash === curr.hash && !opts?.replace) {
+            return; // nothing to do
+        }
 
         if (this.#onBeforeNavigate) {
             const result = await this.#onBeforeNavigate(url);

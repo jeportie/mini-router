@@ -37,8 +37,14 @@ function handleNotFound(route, mountEl, state) {
 
 async function applyGuards({ parents, route, ctx, rid, state, navigate }) {
     const res = await runGuards(parents, route, ctx);
-    if (rid !== state.renderId) return "stale";
-    if (res.action === "block") return "blocked";
+    if (rid !== state.renderId) {
+        state.busy = false;
+        return "stale";
+    }
+    if (res.action === "block") {
+        state.busy = false;
+        return "blocked";
+    }
     if (res.action === "redirect") {
         await navigate(res.to, { replace: true });
         state.busy = false;
