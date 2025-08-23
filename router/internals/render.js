@@ -6,7 +6,7 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/23 17:31:26 by jeportie          #+#    #+#             //
-//   Updated: 2025/08/23 23:18:52 by jeportie         ###   ########.fr       //
+//   Updated: 2025/08/24 00:07:00 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
@@ -59,12 +59,26 @@ function navStateEngineSpec() {
     if (!st) return null;
     // support both { trans:{...} } and putting fields at top-level
     if (st.trans) return st.trans;
-    if (st.engine || st.variant || st.tag) return st;
+    if (st.engine || st.variant || st.tag || st.mode) return st;
     return null;
 }
 
-async function runPhase(engine, mountEl, phase, ctx, rid, state) {
-    await Promise.resolve(engine.run(mountEl, phase, ctx));
+// helpers to extract variant/mode from raw specs
+function getVariantFromSpec(spec) {
+    if (!spec || typeof spec !== "object") return undefined;
+    if (typeof spec.variant === "string") return spec.variant;
+    if (spec.trans && typeof spec.trans.variant === "string") return spec.trans.variant;
+    return undefined;
+}
+function getModeFromSpec(spec) {
+    if (!spec || typeof spec !== "object") return undefined;
+    const v = spec.mode ?? (spec.trans && spec.trans.mode);
+    if (v === "container" || v === "overlap" || v === "auto") return v;
+    return undefined;
+}
+
+async function runPhase(engine, el, phase, ctx, rid, state) {
+    await Promise.resolve(engine.run(el, phase, ctx));
     return rid === state.renderId;
 }
 
@@ -100,6 +114,8 @@ async function instantiateLeaf(route, ctx, rid, state) {
  *   mountEl:HTMLElement,
  *   transitionEngine:any,                   // default engine (already normalized)
  *   engineRegistry: Record<string,(spec:any)=>{run:Function}>,
+ *   routerDefaultSpec:any,                  // RAW transition spec from Router options
+ *   routerDefaultMode:"container"|"overlap"|"auto",
  *   state:{ renderId:number, busy:boolean, currentView:any, currentLayouts:any[] },
  *   navigate:(to:string, opts?:{replace?:boolean, state?:any})=>Promise<void>,
  * }} env
@@ -107,15 +123,38 @@ async function instantiateLeaf(route, ctx, rid, state) {
  */
 export async function renderPipeline(env, rid) {
     const { routes, notFound, mountEl, transitionEngine, engineRegistry, state } = env;
+
     const { pathname, route, params } = resolveMatch(routes, notFound);
     if (handleNotFound(route, mountEl, state)) return;
+
     const ctx = buildContext(pathname, params);
+
     const effectiveEngine = pickEngine({
         routerDefault: transitionEngine,
         routeMeta: route?.transition,
         navStateSpec: navStateEngineSpec(),
         registry: engineRegistry,
     });
+
+    // Resolve variant + mode (per-nav > per-route > router default)
+    const navSpec = navStateEngineSpec();
+    const variant =
+        getVariantFromSpec(navSpec) ??
+        getVariantFromSpec(route?.transition) ??
+        getVariantFromSpec(env.routerDefaultSpec) ??
+        "fade";
+
+    let mode =
+        getModeFromSpec(navSpec) ??
+        getModeFromSpec(route?.transition) ??
+        (typeof env.routerDefaultSpec === "object" ? getModeFromSpec(env.routerDefaultSpec) : undefined) ??
+        env.routerDefaultMode ?? "auto";
+
+    if (mode === "auto") {
+        mode = (variant === "slide") ? "overlap" : "container";
+    }
+    const useOverlap = (mode === "overlap");
+
     const guardStatus = await applyGuards({
         parents: route.parents || [],
         route,
@@ -125,18 +164,78 @@ export async function renderPipeline(env, rid) {
         navigate: env.navigate,
     });
     if (guardStatus !== "continue") return;
-    if (mountEl.childElementCount > 0) {
-        if (!(await runPhase(effectiveEngine, mountEl, "out", ctx, rid, state))) return;
+
+    if (!useOverlap) {
+        // ---------- CONTAINER MODE (fade/zoom/default) ----------
+        if (mountEl.childElementCount > 0) {
+            if (!(await runPhase(effectiveEngine, mountEl, "out", ctx, rid, state))) return;
+        }
+        teardownCurrent(state);
+        const { stale: staleLayouts, layouts } = await instantiateLayouts(route.parents, ctx, rid, state);
+        if (staleLayouts) { state.busy = false; return; }
+        const { stale: staleLeaf, leaf } = await instantiateLeaf(route, ctx, rid, state);
+        if (staleLeaf) { state.busy = false; return; }
+        const committed = await domCommit({ mountEl, layouts, leaf, rid, state });
+        if (rid !== state.renderId) { state.busy = false; return; }
+        state.currentLayouts = committed.layoutInstances;
+        state.currentView = committed.viewInstance;
+        if (!(await runPhase(effectiveEngine, mountEl, "in", ctx, rid, state))) return;
+        state.busy = false;
+        return;
     }
+
+    // ---------- OVERLAP MODE (two .view-slot layers) ----------
+    // Ensure container can hold absolutely positioned children
+    if (getComputedStyle(mountEl).position === "static") {
+        mountEl.style.position = "relative";
+    }
+
+    // Wrap existing content (if any) into .view-slot as "old"
+    let oldSlot = mountEl.querySelector(".view-slot");
+    if (!oldSlot && mountEl.childElementCount > 0) {
+        const wrap = document.createElement("div");
+        wrap.className = "view-slot route-leave";
+        wrap.style.position = "absolute";
+        wrap.style.inset = "0";
+        wrap.innerHTML = mountEl.innerHTML;
+        mountEl.innerHTML = "";
+        mountEl.appendChild(wrap);
+        oldSlot = wrap;
+    }
+
+    // Create the "new" slot
+    const newSlot = document.createElement("div");
+    newSlot.className = "view-slot route-enter";
+    newSlot.style.position = "absolute";
+    newSlot.style.inset = "0";
+    mountEl.appendChild(newSlot);
+
+    // Teardown previous instances BEFORE mounting the new ones
     teardownCurrent(state);
-    const { stale: staleLayouts, layouts } = await instantiateLayouts(route.parents, ctx, rid, state);
-    if (staleLayouts) return;
-    const { stale: staleLeaf, leaf } = await instantiateLeaf(route, ctx, rid, state);
-    if (staleLeaf) return;
-    const committed = await domCommit({ mountEl, layouts, leaf, rid, state });
-    if (rid !== state.renderId) return;
-    state.currentLayouts = committed.layoutInstances;
-    state.currentView = committed.viewInstance;
-    if (!(await runPhase(effectiveEngine, mountEl, "in", ctx, rid, state))) return;
+
+    // Instantiate + commit into the NEW SLOT
+    const { stale: staleLayouts2, layouts: layouts2 } = await instantiateLayouts(route.parents, ctx, rid, state);
+    if (staleLayouts2) { newSlot.remove(); state.busy = false; return; }
+    const { stale: staleLeaf2, leaf: leaf2 } = await instantiateLeaf(route, ctx, rid, state);
+    if (staleLeaf2) { newSlot.remove(); state.busy = false; return; }
+
+    // IMPORTANT: domCommit should accept { targetEl } and default to mountEl if missing
+    const committed2 = await domCommit({ mountEl, targetEl: newSlot, layouts: layouts2, leaf: leaf2, rid, state });
+    if (rid !== state.renderId) { newSlot.remove(); state.busy = false; return; }
+    state.currentLayouts = committed2.layoutInstances;
+    state.currentView = committed2.viewInstance;
+
+    // Animate both slots concurrently
+    const tasks = [];
+    tasks.push(Promise.resolve(effectiveEngine.run(newSlot, "in", ctx)));
+    if (oldSlot) tasks.push(Promise.resolve(effectiveEngine.run(oldSlot, "out", ctx)));
+    await Promise.all(tasks);
+    if (rid !== state.renderId) { newSlot.remove(); state.busy = false; return; }
+
+    // Cleanup old
+    oldSlot?.remove();
+
+    // Finalize
     state.busy = false;
 }
+

@@ -23,14 +23,15 @@
  * }} deps
  * @returns {Promise<{ viewInstance:any, layoutInstances:any[] }>}
  */
-export async function domCommit({ mountEl, layouts, leaf, rid, state }) {
+export async function domCommit({ mountEl, targetEl, layouts, leaf, rid, state }) {
+    const host = targetEl || mountEl;
 
-    // 1) Get leaf HTML
+    // Start with leaf view HTML
     let html = await leaf.getHTML();
     if (rid !== state.renderId) return { viewInstance: null, layoutInstances: [] };
     html = typeof html === "string" ? html : String(html);
 
-    // 2) Wrap through layouts (inner → outer)
+    // Wrap through layouts (inner → outer)
     for (let i = layouts.length - 1; i >= 0; i--) {
         const inst = layouts[i];
         let shell = await inst.getHTML();
@@ -42,13 +43,15 @@ export async function domCommit({ mountEl, layouts, leaf, rid, state }) {
         html = shell.replace("<!-- router-slot -->", html);
     }
 
-    // 3) Swap content
-    mountEl.innerHTML = html;
-    if (rid !== state.renderId) return { viewInstance: null, layoutInstances: [] };
+    // Commit to DOM
+    host.innerHTML = html;
 
-    // 4) Mount hooks (outer → inner order is fine; each mounts its own subtree)
+    // Mount hooks
     for (const inst of layouts) inst.mount?.();
     leaf.mount?.();
 
-    return { viewInstance: leaf, layoutInstances: layouts };
+    return {
+        layoutInstances: layouts,
+        viewInstance: leaf,
+    };
 }

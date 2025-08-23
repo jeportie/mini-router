@@ -6,7 +6,7 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/21 13:55:36 by jeportie          #+#    #+#             //
-//   Updated: 2025/08/23 23:11:47 by jeportie         ###   ########.fr       //
+//   Updated: 2025/08/24 00:07:00 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
@@ -24,7 +24,8 @@ import { wcEngine } from "./transitions/wcEngine.js";
  * @prop {string} [mountSelector="#app"]
  * @prop {string} [linkSelector="[data-link]"]
  * @prop {(to:string)=>boolean|void|Promise<boolean|void>} [onBeforeNavigate]
- * @prop {(el:HTMLElement, phase:"out"|"in")=> (void|Promise<void>)} [transition]
+ * @prop {(el:HTMLElement, phase:"out"|"in")=> (void|Promise<void>) | { run:(el:HTMLElement,phase:"out"|"in",ctx?:any)=>void|Promise<void> } | { engine:string, [key:string]:any }} [transition]
+ * @prop {"container"|"overlap"|"auto"} [transitionMode]  // used when transition is a function/engine object
  * @prop {string} [notFoundPath]
  */
 export default class Router {
@@ -34,9 +35,14 @@ export default class Router {
     #linkSelector;
     #onBeforeNavigate;
     #started = false;
+
     // engines
     #engineRegistry;
     #defaultEngine;
+
+    // keep raw for resolving variant/mode later
+    #routerDefaultSpec;
+    #routerDefaultMode;
 
     #state = {
         renderId: 0,
@@ -89,6 +95,9 @@ export default class Router {
         this.#linkSelector = opts.linkSelector ?? "[data-link]";
         this.#onBeforeNavigate = opts.onBeforeNavigate;
 
+        // store raw + mode, and also normalize to an engine for execution
+        this.#routerDefaultSpec = opts.transition;
+        this.#routerDefaultMode = opts.transitionMode ?? "auto";
         this.#defaultEngine = toEngine(opts.transition, this.#engineRegistry);
 
         const { onPopState, onClick } = createHandlers({
@@ -123,15 +132,16 @@ export default class Router {
         if (this.#state.busy) return;
         const next = new URL(url, location.origin);
         const curr = location;
-        if (next.pathname === curr.pathname && next.search === curr.search && next.hash === curr.hash && !opts?.replace) {
+        if (next.pathname === curr.pathname &&
+            next.search === curr.search &&
+            next.hash === curr.hash &&
+            !opts?.replace) {
             return; // nothing to do
         }
-
         if (this.#onBeforeNavigate) {
             const result = await this.#onBeforeNavigate(url);
             if (result === false) return;
         }
-
         if (opts?.replace) {
             history.replaceState(opts?.state ?? null, "", url);
         } else {
@@ -150,6 +160,8 @@ export default class Router {
                 mountEl: this.#mountEl,
                 transitionEngine: this.#defaultEngine,
                 engineRegistry: this.#engineRegistry,
+                routerDefaultSpec: this.#routerDefaultSpec,
+                routerDefaultMode: this.#routerDefaultMode,
                 state: this.#state,
                 navigate: this.navigateTo.bind(this),
             },
@@ -157,3 +169,4 @@ export default class Router {
         );
     }
 }
+
