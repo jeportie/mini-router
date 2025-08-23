@@ -6,12 +6,11 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/23 17:31:26 by jeportie          #+#    #+#             //
-//   Updated: 2025/08/23 17:45:32 by jeportie         ###   ########.fr       //
+//   Updated: 2025/08/23 18:20:23 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
-import { normalize } from "./routerTools.js";
-import { ensureComponent, runGuards } from "./routerInternals.js";
+import { normalize, ensureComponent, runGuards } from "./routing.js";
 import { matchPathname } from "./matching/matchPathname.js";
 import { buildContext } from "./context/buildContext.js";
 

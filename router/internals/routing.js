@@ -1,16 +1,39 @@
 // ************************************************************************** //
 //                                                                            //
 //                                                        :::      ::::::::   //
-//   routerInternals.js                                 :+:      :+:    :+:   //
+//   routing.js                                         :+:      :+:    :+:   //
 //                                                    +:+ +:+         +:+     //
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
-//   Created: 2025/08/22 13:26:01 by jeportie          #+#    #+#             //
-//   Updated: 2025/08/22 13:45:42 by jeportie         ###   ########.fr       //
+//   Created: 2025/08/23 18:17:27 by jeportie          #+#    #+#             //
+//   Updated: 2025/08/23 18:18:50 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
-import { normalize } from "./routerTools.js";
+export function pathToRegex(path) {
+    if (path === "*") return { regex: /.*/u, keys: [], isCatchAll: true };
+
+    const keys = [];
+    const pattern =
+        "^" +
+        path
+            .replace(/\//g, "\\/")
+            .replace(/:(\w+)/g, (_m, k) => {
+                keys.push(k);
+                return "([^\\/]+)";
+            }) +
+        "$";
+
+    return { regex: new RegExp(pattern, "u"), keys, isCatchAll: false };
+}
+
+export function normalize(path) {
+    return path !== "/" ? path.replace(/\/+$/, "") : "/";
+}
+
+export function parseQuery(search) {
+    return Object.fromEntries(new URLSearchParams(search).entries());
+}
 
 /**
  * Expand a nested route tree into a flat list with absolute full paths and parent chain.
