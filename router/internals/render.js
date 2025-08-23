@@ -6,7 +6,7 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/23 17:31:26 by jeportie          #+#    #+#             //
-//   Updated: 2025/08/24 00:07:00 by jeportie         ###   ########.fr       //
+//   Updated: 2025/08/24 01:25:00 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
@@ -106,6 +106,179 @@ async function instantiateLeaf(route, ctx, rid, state) {
     return { stale: false, leaf: new LeafCtor(ctx) };
 }
 
+/** ------------------------ Mode/Variant resolution ------------------------ */
+
+function decideVariantMode(effectiveEngine, route, env) {
+    const navSpec = navStateEngineSpec();
+    const engineDefaultVariant = effectiveEngine?.variant;
+
+    const variant =
+        getVariantFromSpec(navSpec) ??
+        getVariantFromSpec(route?.transition) ??
+        getVariantFromSpec(env.routerDefaultSpec) ??
+        engineDefaultVariant ??
+        "fade";
+
+    let mode =
+        getModeFromSpec(navSpec) ??
+        getModeFromSpec(route?.transition) ??
+        (typeof env.routerDefaultSpec === "object" ? getModeFromSpec(env.routerDefaultSpec) : undefined) ??
+        env.routerDefaultMode ??
+        "auto";
+
+    if (mode === "auto") {
+        mode = (variant === "slide") ? "overlap" : "container";
+    }
+    return { variant, mode, useOverlap: mode === "overlap", isSlide: variant === "slide" };
+}
+
+/** ------------------------ Orchestrator branches ------------------------- */
+
+async function runContainerMode({ env, ctx, rid, effectiveEngine, route }) {
+    const { mountEl, state } = env;
+
+    if (mountEl.childElementCount > 0) {
+        if (!(await runPhase(effectiveEngine, mountEl, "out", ctx, rid, state))) return;
+    }
+    teardownCurrent(state);
+
+    const { stale: staleLayouts, layouts } = await instantiateLayouts(route.parents, ctx, rid, state);
+    if (staleLayouts) { state.busy = false; return; }
+    const { stale: staleLeaf, leaf } = await instantiateLeaf(route, ctx, rid, state);
+    if (staleLeaf) { state.busy = false; return; }
+
+    const committed = await domCommit({ mountEl, layouts, leaf, rid, state });
+    if (rid !== state.renderId) { state.busy = false; return; }
+
+    state.currentLayouts = committed.layoutInstances;
+    state.currentView = committed.viewInstance;
+
+    if (!(await runPhase(effectiveEngine, mountEl, "in", ctx, rid, state))) return;
+
+    state.busy = false;
+}
+
+async function runOverlapStackMode({ env, ctx, rid, effectiveEngine, route }) {
+    // Two stacked absolute slots (fade/crossfade/etc.)
+    const { mountEl, state } = env;
+
+    if (getComputedStyle(mountEl).position === "static") {
+        mountEl.style.position = "relative";
+    }
+
+    // Wrap existing content (if any) into .view-slot as "old"
+    let oldSlot = mountEl.querySelector(".view-slot");
+    if (!oldSlot && mountEl.childElementCount > 0) {
+        const wrap = document.createElement("div");
+        wrap.className = "view-slot route-leave";
+        wrap.style.position = "absolute";
+        wrap.style.inset = "0";
+        wrap.innerHTML = mountEl.innerHTML;
+        mountEl.innerHTML = "";
+        mountEl.appendChild(wrap);
+        oldSlot = wrap;
+    }
+
+    // Create the "new" slot
+    const newSlot = document.createElement("div");
+    newSlot.className = "view-slot route-enter";
+    newSlot.style.position = "absolute";
+    newSlot.style.inset = "0";
+    mountEl.appendChild(newSlot);
+
+    teardownCurrent(state);
+
+    const { stale: staleLayouts2, layouts: layouts2 } = await instantiateLayouts(route.parents, ctx, rid, state);
+    if (staleLayouts2) { newSlot.remove(); state.busy = false; return; }
+    const { stale: staleLeaf2, leaf: leaf2 } = await instantiateLeaf(route, ctx, rid, state);
+    if (staleLeaf2) { newSlot.remove(); state.busy = false; return; }
+
+    const committed2 = await domCommit({ mountEl, targetEl: newSlot, layouts: layouts2, leaf: leaf2, rid, state });
+    if (rid !== state.renderId) { newSlot.remove(); state.busy = false; return; }
+
+    state.currentLayouts = committed2.layoutInstances;
+    state.currentView = committed2.viewInstance;
+
+    const tasks = [];
+    tasks.push(Promise.resolve(effectiveEngine.run(newSlot, "in", ctx)));
+    if (oldSlot) tasks.push(Promise.resolve(effectiveEngine.run(oldSlot, "out", ctx)));
+    await Promise.all(tasks);
+    if (rid !== state.renderId) { newSlot.remove(); state.busy = false; return; }
+
+    // Cleanup old
+    oldSlot?.remove();
+
+    state.busy = false;
+}
+
+async function runSlideTrackPushMode({ env, ctx, rid, effectiveEngine, route }) {
+    // True push: new view enters from right, pushes old view right; no overlap.
+    const { mountEl, state } = env;
+
+    if (getComputedStyle(mountEl).position === "static") {
+        mountEl.style.position = "relative";
+    }
+
+    const hadContent = mountEl.childElementCount > 0;
+
+    // If first render, just mount new content with no animation
+    if (!hadContent) {
+        teardownCurrent(state);
+        const { stale: staleLayouts, layouts } = await instantiateLayouts(route.parents, ctx, rid, state);
+        if (staleLayouts) { state.busy = false; return; }
+        const { stale: staleLeaf, leaf } = await instantiateLeaf(route, ctx, rid, state);
+        if (staleLeaf) { state.busy = false; return; }
+        const committed = await domCommit({ mountEl, layouts, leaf, rid, state });
+        if (rid !== state.renderId) { state.busy = false; return; }
+        state.currentLayouts = committed.layoutInstances;
+        state.currentView = committed.viewInstance;
+        state.busy = false;
+        return;
+    }
+
+    // Prepare side-by-side slots inside a track
+    const oldSlot = document.createElement("div");
+    oldSlot.className = "view-slot";
+    oldSlot.innerHTML = mountEl.innerHTML;
+
+    const newSlot = document.createElement("div");
+    newSlot.className = "view-slot";
+
+    const track = document.createElement("div");
+    track.className = "view-track route-enter";
+    // Clear and insert track with both slots
+    mountEl.innerHTML = "";
+    track.appendChild(oldSlot);
+    track.appendChild(newSlot);
+    mountEl.appendChild(track);
+
+    // Teardown previous instances BEFORE mounting the new ones
+    teardownCurrent(state);
+
+    const { stale: staleLayouts2, layouts: layouts2 } = await instantiateLayouts(route.parents, ctx, rid, state);
+    if (staleLayouts2) { mountEl.innerHTML = ""; state.busy = false; return; }
+    const { stale: staleLeaf2, leaf: leaf2 } = await instantiateLeaf(route, ctx, rid, state);
+    if (staleLeaf2) { mountEl.innerHTML = ""; state.busy = false; return; }
+
+    // Inject new page into the right slot
+    const committed2 = await domCommit({ mountEl, targetEl: newSlot, layouts: layouts2, leaf: leaf2, rid, state });
+    if (rid !== state.renderId) { mountEl.innerHTML = ""; state.busy = false; return; }
+    state.currentLayouts = committed2.layoutInstances;
+    state.currentView = committed2.viewInstance;
+
+    // Animate the TRACK (engine toggles classes; CSS slides track from 0% to -50%)
+    await Promise.resolve(effectiveEngine.run(track, "in", ctx));
+    if (rid !== state.renderId) { state.busy = false; return; }
+
+    // Unwrap: move new content out of the track back into mountEl, drop track
+    const frag = document.createDocumentFragment();
+    while (newSlot.firstChild) frag.appendChild(newSlot.firstChild);
+    mountEl.innerHTML = "";
+    mountEl.appendChild(frag);
+
+    state.busy = false;
+}
+
 /** ---------------------------- Orchestrator ------------------------------- */
 /**
  * @param {{
@@ -136,24 +309,7 @@ export async function renderPipeline(env, rid) {
         registry: engineRegistry,
     });
 
-    // Resolve variant + mode (per-nav > per-route > router default)
-    const navSpec = navStateEngineSpec();
-    const variant =
-        getVariantFromSpec(navSpec) ??
-        getVariantFromSpec(route?.transition) ??
-        getVariantFromSpec(env.routerDefaultSpec) ??
-        "fade";
-
-    let mode =
-        getModeFromSpec(navSpec) ??
-        getModeFromSpec(route?.transition) ??
-        (typeof env.routerDefaultSpec === "object" ? getModeFromSpec(env.routerDefaultSpec) : undefined) ??
-        env.routerDefaultMode ?? "auto";
-
-    if (mode === "auto") {
-        mode = (variant === "slide") ? "overlap" : "container";
-    }
-    const useOverlap = (mode === "overlap");
+    const { variant, mode, useOverlap, isSlide } = decideVariantMode(effectiveEngine, route, env);
 
     const guardStatus = await applyGuards({
         parents: route.parents || [],
@@ -166,76 +322,14 @@ export async function renderPipeline(env, rid) {
     if (guardStatus !== "continue") return;
 
     if (!useOverlap) {
-        // ---------- CONTAINER MODE (fade/zoom/default) ----------
-        if (mountEl.childElementCount > 0) {
-            if (!(await runPhase(effectiveEngine, mountEl, "out", ctx, rid, state))) return;
-        }
-        teardownCurrent(state);
-        const { stale: staleLayouts, layouts } = await instantiateLayouts(route.parents, ctx, rid, state);
-        if (staleLayouts) { state.busy = false; return; }
-        const { stale: staleLeaf, leaf } = await instantiateLeaf(route, ctx, rid, state);
-        if (staleLeaf) { state.busy = false; return; }
-        const committed = await domCommit({ mountEl, layouts, leaf, rid, state });
-        if (rid !== state.renderId) { state.busy = false; return; }
-        state.currentLayouts = committed.layoutInstances;
-        state.currentView = committed.viewInstance;
-        if (!(await runPhase(effectiveEngine, mountEl, "in", ctx, rid, state))) return;
-        state.busy = false;
+        await runContainerMode({ env, ctx, rid, effectiveEngine, route });
         return;
     }
 
-    // ---------- OVERLAP MODE (two .view-slot layers) ----------
-    // Ensure container can hold absolutely positioned children
-    if (getComputedStyle(mountEl).position === "static") {
-        mountEl.style.position = "relative";
+    if (isSlide) {
+        await runSlideTrackPushMode({ env, ctx, rid, effectiveEngine, route });
+        return;
     }
 
-    // Wrap existing content (if any) into .view-slot as "old"
-    let oldSlot = mountEl.querySelector(".view-slot");
-    if (!oldSlot && mountEl.childElementCount > 0) {
-        const wrap = document.createElement("div");
-        wrap.className = "view-slot route-leave";
-        wrap.style.position = "absolute";
-        wrap.style.inset = "0";
-        wrap.innerHTML = mountEl.innerHTML;
-        mountEl.innerHTML = "";
-        mountEl.appendChild(wrap);
-        oldSlot = wrap;
-    }
-
-    // Create the "new" slot
-    const newSlot = document.createElement("div");
-    newSlot.className = "view-slot route-enter";
-    newSlot.style.position = "absolute";
-    newSlot.style.inset = "0";
-    mountEl.appendChild(newSlot);
-
-    // Teardown previous instances BEFORE mounting the new ones
-    teardownCurrent(state);
-
-    // Instantiate + commit into the NEW SLOT
-    const { stale: staleLayouts2, layouts: layouts2 } = await instantiateLayouts(route.parents, ctx, rid, state);
-    if (staleLayouts2) { newSlot.remove(); state.busy = false; return; }
-    const { stale: staleLeaf2, leaf: leaf2 } = await instantiateLeaf(route, ctx, rid, state);
-    if (staleLeaf2) { newSlot.remove(); state.busy = false; return; }
-
-    // IMPORTANT: domCommit should accept { targetEl } and default to mountEl if missing
-    const committed2 = await domCommit({ mountEl, targetEl: newSlot, layouts: layouts2, leaf: leaf2, rid, state });
-    if (rid !== state.renderId) { newSlot.remove(); state.busy = false; return; }
-    state.currentLayouts = committed2.layoutInstances;
-    state.currentView = committed2.viewInstance;
-
-    // Animate both slots concurrently
-    const tasks = [];
-    tasks.push(Promise.resolve(effectiveEngine.run(newSlot, "in", ctx)));
-    if (oldSlot) tasks.push(Promise.resolve(effectiveEngine.run(oldSlot, "out", ctx)));
-    await Promise.all(tasks);
-    if (rid !== state.renderId) { newSlot.remove(); state.busy = false; return; }
-
-    // Cleanup old
-    oldSlot?.remove();
-
-    // Finalize
-    state.busy = false;
+    await runOverlapStackMode({ env, ctx, rid, effectiveEngine, route });
 }
-
