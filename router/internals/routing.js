@@ -6,7 +6,7 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/23 18:17:27 by jeportie          #+#    #+#             //
-//   Updated: 2025/08/23 18:18:50 by jeportie         ###   ########.fr       //
+//   Updated: 2025/08/23 23:19:32 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
@@ -60,6 +60,7 @@ export function expandRoutes(routes, base = "/", parents = []) {
             component: r.component,
             layout: r.layout,
             beforeEnter: r.beforeEnter,
+            transition: r.transition,
             parents, // keep current chain (shallow)
             children: r.children,
         };

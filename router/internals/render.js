@@ -6,7 +6,7 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/23 17:31:26 by jeportie          #+#    #+#             //
-//   Updated: 2025/08/23 18:54:34 by jeportie         ###   ########.fr       //
+//   Updated: 2025/08/23 23:18:52 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
@@ -14,10 +14,10 @@ import { normalize, ensureComponent, runGuards } from "./routing.js";
 import { matchPathname } from "./matching/matchPathname.js";
 import { buildContext } from "./context/buildContext.js";
 import { domCommit } from "./pipelines/domCommit.js";
+import { pickEngine } from "../transitions/index.js";
 
 /** ------------------------ Phase helpers ----------------- */
 
-/** Resolve the route (or notFound) and params from current location */
 function resolveMatch(routes, notFound) {
     const pathname = normalize(window.location.pathname);
     const m = matchPathname(pathname, routes);
@@ -28,7 +28,6 @@ function resolveMatch(routes, notFound) {
     };
 }
 
-/** Early 404 handling */
 function handleNotFound(route, mountEl, state) {
     if (route) return false;
     mountEl.innerHTML = "<h1>Not Found</h1>";
@@ -36,7 +35,6 @@ function handleNotFound(route, mountEl, state) {
     return true;
 }
 
-/** Guards runner + redirect/block handling */
 async function applyGuards({ parents, route, ctx, rid, state, navigate }) {
     const res = await runGuards(parents, route, ctx);
     if (rid !== state.renderId) return "stale";
@@ -49,15 +47,21 @@ async function applyGuards({ parents, route, ctx, rid, state, navigate }) {
     return "continue";
 }
 
-/** OUT transition only if something was already rendered */
-async function transitionOutIfNeeded(transition, mountEl, rid, state) {
-    if (!transition) return true;
-    if (mountEl.childElementCount === 0) return true;
-    await Promise.resolve(transition(mountEl, "out"));
+/** read per-navigation override from history.state */
+function navStateEngineSpec() {
+    const st = history.state;
+    if (!st) return null;
+    // support both { trans:{...} } and putting fields at top-level
+    if (st.trans) return st.trans;
+    if (st.engine || st.variant || st.tag) return st;
+    return null;
+}
+
+async function runPhase(engine, mountEl, phase, ctx, rid, state) {
+    await Promise.resolve(engine.run(mountEl, phase, ctx));
     return rid === state.renderId;
 }
 
-/** Destroy previously mounted view + layouts */
 function teardownCurrent(state) {
     state.currentView?.destroy?.();
     state.currentView = null;
@@ -65,7 +69,6 @@ function teardownCurrent(state) {
     state.currentLayouts = [];
 }
 
-/** Build layout instances (outer order in the returned array) */
 async function instantiateLayouts(parents, ctx, rid, state) {
     const layoutInsts = [];
     for (const p of parents || []) {
@@ -77,18 +80,10 @@ async function instantiateLayouts(parents, ctx, rid, state) {
     return { stale: false, layouts: layoutInsts };
 }
 
-/** Build view (leaf) instance */
 async function instantiateLeaf(route, ctx, rid, state) {
     const LeafCtor = await ensureComponent(route.component || route.view);
     if (rid !== state.renderId) return { stale: true, leaf: null };
     return { stale: false, leaf: new LeafCtor(ctx) };
-}
-
-/** IN transition */
-async function transitionInIfAny(transition, mountEl, rid, state) {
-    if (!transition) return true;
-    await Promise.resolve(transition(mountEl, "in"));
-    return rid === state.renderId;
 }
 
 /** ---------------------------- Orchestrator ------------------------------- */
@@ -97,17 +92,24 @@ async function transitionInIfAny(transition, mountEl, rid, state) {
  *   routes:any[],
  *   notFound:any,
  *   mountEl:HTMLElement,
- *   transition?: (el:HTMLElement, phase:"out"|"in")=>void|Promise<void>,
+ *   transitionEngine:any,                   // default engine (already normalized)
+ *   engineRegistry: Record<string,(spec:any)=>{run:Function}>,
  *   state:{ renderId:number, busy:boolean, currentView:any, currentLayouts:any[] },
  *   navigate:(to:string, opts?:{replace?:boolean, state?:any})=>Promise<void>,
  * }} env
  * @param {number} rid
  */
 export async function renderPipeline(env, rid) {
-    const { routes, notFound, mountEl, transition, state } = env;
+    const { routes, notFound, mountEl, transitionEngine, engineRegistry, state } = env;
     const { pathname, route, params } = resolveMatch(routes, notFound);
     if (handleNotFound(route, mountEl, state)) return;
     const ctx = buildContext(pathname, params);
+    const effectiveEngine = pickEngine({
+        routerDefault: transitionEngine,
+        routeMeta: route?.transition,
+        navStateSpec: navStateEngineSpec(),
+        registry: engineRegistry,
+    });
     const guardStatus = await applyGuards({
         parents: route.parents || [],
         route,
@@ -117,7 +119,9 @@ export async function renderPipeline(env, rid) {
         navigate: env.navigate,
     });
     if (guardStatus !== "continue") return;
-    if (!(await transitionOutIfNeeded(transition, mountEl, rid, state))) return;
+    if (mountEl.childElementCount > 0) {
+        if (!(await runPhase(effectiveEngine, mountEl, "out", ctx, rid, state))) return;
+    }
     teardownCurrent(state);
     const { stale: staleLayouts, layouts } = await instantiateLayouts(route.parents, ctx, rid, state);
     if (staleLayouts) return;
@@ -127,6 +131,6 @@ export async function renderPipeline(env, rid) {
     if (rid !== state.renderId) return;
     state.currentLayouts = committed.layoutInstances;
     state.currentView = committed.viewInstance;
-    if (!(await transitionInIfAny(transition, mountEl, rid, state))) return;
+    if (!(await runPhase(effectiveEngine, mountEl, "in", ctx, rid, state))) return;
     state.busy = false;
 }

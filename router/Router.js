@@ -6,13 +6,17 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/21 13:55:36 by jeportie          #+#    #+#             //
-//   Updated: 2025/08/23 18:19:59 by jeportie         ###   ########.fr       //
+//   Updated: 2025/08/23 23:11:47 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
 import { pathToRegex, expandRoutes } from "./internals/routing.js";
 import { renderPipeline } from "./internals/render.js";
 import { createHandlers } from "./internals/events.js";
+import { toEngine } from "./transitions/index.js";
+import { tailwindEngine } from "./transitions/tailwindEngine.js";
+import { noopEngine } from "./transitions/noopEngine.js";
+import { wcEngine } from "./transitions/wcEngine.js";
 
 /**
  * @typedef RouterOptions
@@ -29,8 +33,10 @@ export default class Router {
     #mountEl;
     #linkSelector;
     #onBeforeNavigate;
-    #transition;
     #started = false;
+    // engines
+    #engineRegistry;
+    #defaultEngine;
 
     #state = {
         renderId: 0,
@@ -47,6 +53,13 @@ export default class Router {
             throw new Error("Router: you must provide a non-empty routes array.");
         }
 
+        // Build registry (add more later: waapi, svg, canvas...)
+        this.#engineRegistry = {
+            tailwind: (spec = {}) => tailwindEngine(spec.variant || "fade"),
+            wc: (spec = {}) => wcEngine(spec.tag || "page-transition"),
+            noop: () => noopEngine(),
+        };
+
         const flat = expandRoutes(opts.routes, "/");
         this.#routes = flat.map((r) => {
             const { regex, keys, isCatchAll } = pathToRegex(r.fullPath === "/*" ? "*" : r.fullPath);
@@ -58,6 +71,7 @@ export default class Router {
                 component: r.component,
                 layout: r.layout,
                 beforeEnter: r.beforeEnter,
+                transition: r.transition,
                 parents: r.parents,
             };
         });
@@ -74,7 +88,8 @@ export default class Router {
 
         this.#linkSelector = opts.linkSelector ?? "[data-link]";
         this.#onBeforeNavigate = opts.onBeforeNavigate;
-        this.#transition = opts.transition;
+
+        this.#defaultEngine = toEngine(opts.transition, this.#engineRegistry);
 
         const { onPopState, onClick } = createHandlers({
             linkSelector: this.#linkSelector,
@@ -128,7 +143,8 @@ export default class Router {
                 routes: this.#routes,
                 notFound: this.#notFound,
                 mountEl: this.#mountEl,
-                transition: this.#transition,
+                transitionEngine: this.#defaultEngine,
+                engineRegistry: this.#engineRegistry,
                 state: this.#state,
                 navigate: this.navigateTo.bind(this),
             },
