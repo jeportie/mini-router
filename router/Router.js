@@ -1,4 +1,3 @@
-
 // ************************************************************************** //
 //                                                                            //
 //                                                        :::      ::::::::   //
@@ -7,32 +6,12 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/21 13:55:36 by jeportie          #+#    #+#             //
-//   Updated: 2025/08/22 11:59:59 by jeportie         ###   ########.fr       //
+//   Updated: 2025/08/23 16:07:18 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
 import { pathToRegex, normalize, parseQuery } from "./routerTools.js";
-import { expandRoutes, ensureComponent, runGuards } from "./routerInternals.js"
-
-/**
- * Simple, framework-agnostic SPA router with:
- * - Nested routes
- * - Lazy loading (component/view as () => import(...))
- * - Route guards (beforeEnter)
- * - Nested layouts (layout with <!-- router-slot -->)
- * - Optional transitions (transition(el, "out" | "in"))
- *
- * Public API:
- *   - new Router(options)
- *   - router.start()
- *   - router.stop()
- *   - router.navigateTo(url, { replace?, state? })
- *
- * Views/Layout must implement:
- *   - async getHTML(): string
- *   - mount?(): void        (optional, runs after HTML is in the DOM)
- *   - destroy?(): void      (optional, runs before unmount)
- */
+import { expandRoutes, ensureComponent, runGuards } from "./routerInternals.js";
 
 /**
  * @typedef RouterOptions
@@ -41,10 +20,11 @@ import { expandRoutes, ensureComponent, runGuards } from "./routerInternals.js"
  * @prop {string} [linkSelector="[data-link]"]
  * @prop {(to:string)=>boolean|void|Promise<boolean|void>} [onBeforeNavigate]
  * @prop {(el:HTMLElement, phase:"out"|"in")=> (void|Promise<void>)} [transition]
- * @prop {string} [notFoundPath] Optional explicit not-found path in your route table
+ * @prop {string} [notFoundPath]
  */
+
 export default class Router {
-    // Compiled flat route table with parents, regex, keys, optional layout & guard
+    // internals
     #routes = [];
     #notFound;
     #mountEl;
@@ -52,39 +32,34 @@ export default class Router {
     #onBeforeNavigate;
     #transition;
     #currentView = null;
-    #started = false;
     #currentLayouts = [];
+    #started = false;
     #renderId = 0;
     #isAnimating = false;
 
-    // ---------- Event handlers (bound once) ----------
+    // ------------ Events ------------
     #onPopState = () => { this.#render(); };
 
     #onClick = (event) => {
-        // Only normal left-clicks
         if (this.#isAnimating) return;
         if (event.defaultPrevented) return;
-        if (event.button !== 0) return;
+        if (event.button !== 0) return; // left-click
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
 
-        // Find the nearest matching link
         const target = event.target;
         if (!(target instanceof Element)) return;
 
         const linkEl = target.closest(this.#linkSelector);
         if (!linkEl) return;
 
-        // Respect standard link behaviors
         if (linkEl.target === "_blank") return;
         if (linkEl.hasAttribute("download")) return;
         if (linkEl.getAttribute("rel") === "external") return;
 
-        // Only handle same-origin, non-API links
         const urlObj = new URL(linkEl.href, window.location.origin);
         if (urlObj.origin !== window.location.origin) return;
         if (urlObj.pathname.startsWith("/api/")) return;
 
-        // SPA navigation
         event.preventDefault();
         const pathAndQuery = urlObj.pathname + urlObj.search + urlObj.hash;
         this.navigateTo(pathAndQuery);
@@ -92,37 +67,33 @@ export default class Router {
 
     /**
      * @param {RouterOptions} opts
-     * @throws {Error} If mount element isn't found or routes are empty
      */
     constructor(opts) {
         if (!opts || !Array.isArray(opts.routes) || opts.routes.length === 0) {
             throw new Error("Router: you must provide a non-empty routes array.");
         }
 
-        // Flatten nested routes and precompile regexes
         const flat = expandRoutes(opts.routes, "/");
         this.#routes = flat.map((r) => {
             const { regex, keys, isCatchAll } = pathToRegex(r.fullPath === "/*" ? "*" : r.fullPath);
             return {
-                path: r.path,            // original local path
-                fullPath: r.fullPath,    // absolute normalized path
+                path: r.path,
+                fullPath: r.fullPath,
                 regex, keys, isCatchAll,
                 view: r.view,
                 component: r.component,
                 layout: r.layout,
                 beforeEnter: r.beforeEnter,
-                parents: r.parents,      // array of parent route entries (with layout/guards)
+                parents: r.parents,
             };
         });
 
-        // Optional explicit notFound mapping, or the first catch-all definition ("*")
         this.#notFound =
             this.#routes.find((r) => r.isCatchAll) ||
             (opts.notFoundPath
                 ? this.#routes.find((r) => r.fullPath === opts.notFoundPath || r.path === opts.notFoundPath)
                 : undefined);
 
-        // Mount point in the DOM where views will be injected
         const m = document.querySelector(opts.mountSelector ?? "#app");
         if (!m) throw new Error("Router: mount element not found.");
         this.#mountEl = /** @type {HTMLElement} */ (m);
@@ -132,11 +103,7 @@ export default class Router {
         this.#transition = opts.transition;
     }
 
-    /**
-     * Start handling navigation:
-     * - Binds `popstate` (back/forward) and delegated link clicks.
-     * - Performs initial render.
-     */
+    // ------------ Public API ------------
     start() {
         if (this.#started) return;
         this.#started = true;
@@ -146,28 +113,20 @@ export default class Router {
         console.log("router successfully started");
     }
 
-    /**
-     * Stop handling navigation and remove event listeners.
-     */
     stop() {
         if (!this.#started) return;
         this.#started = false;
-
         window.removeEventListener("popstate", this.#onPopState);
         document.body.removeEventListener("click", this.#onClick);
     }
 
     /**
-     * Programmatically navigate within the SPA.
-     *
-     * @param {string} url A path + optional query string (e.g. "/posts/7?tab=comments")
+     * @param {string} url
      * @param {{ replace?: boolean, state?: any }} [opts]
-     *   - replace: use history.replaceState instead of pushState
-     *   - state:   arbitrary serializable state stored in history.state
      */
     async navigateTo(url, opts) {
         if (this.#isAnimating) return;
-        // Allow user-defined guard/confirm (sync or async). Any falsey return cancels.
+
         if (this.#onBeforeNavigate) {
             const result = await this.#onBeforeNavigate(url);
             if (result === false) return;
@@ -181,63 +140,34 @@ export default class Router {
         this.#render();
     }
 
-    // ---------- Internal ----------
-
-    /**
-     * Try to match the current pathname against known routes.
-     * @param {string} pathname Normalized path (e.g. "/posts/7")
-     * @returns {{ route:any, params:Record<string,string> } | null}
-     */
+    // ------------ Internals ------------
     #match(pathname) {
         for (const r of this.#routes) {
             const m = pathname.match(r.regex);
             if (!m) continue;
-
-            const values = m.slice(1); // capture groups
+            const values = m.slice(1);
             const params = {};
-            r.keys.forEach((k, i) => {
-                params[k] = decodeURIComponent(values[i] ?? "");
-            });
+            r.keys.forEach((k, i) => { params[k] = decodeURIComponent(values[i] ?? ""); });
             return { route: r, params };
         }
         return null;
     }
 
-    /**
-     * Build the per-view context object.
-     * @param {string} pathname
-     * @param {Record<string,string>} params
-     * @returns {{ path:string, params:Record<string,string>,
-     *      query:Record<string,string>, hash:Record<string>, state:any }}
-     */
     #buildContext(pathname, params) {
         return {
             path: pathname,
             params,
             query: parseQuery(window.location.search),
-            hash: (window.location.hash || "").replace(/^#/, ""), // 👈 add this
+            hash: (window.location.hash || "").replace(/^#/, ""),
             state: history.state,
         };
     }
 
-    /**
-     * Core render pipeline with guards, layouts, lazy loading, and optional transitions:
-     * - Resolve current route
-     * - Build context
-     * - Run guards (parents -> leaf)
-     * - Transition out (optional)
-     * - Destroy previous view
-     * - Load layouts & leaf (lazy if needed)
-     * - Compose HTML via <!-- router-slot -->
-     * - Inject HTML and mount leaf
-     * - Transition in (optional)
-     */
     async #render() {
         const rid = ++this.#renderId;
         this.#isAnimating = true;
 
         const pathname = normalize(window.location.pathname);
-
         const m = this.#match(pathname);
         const route = m?.route || this.#notFound;
         const params = m?.params || {};
@@ -249,10 +179,8 @@ export default class Router {
         }
 
         const ctx = this.#buildContext(pathname, params);
-        const navState = history.state || {};
-        const variant = navState.trans || "fade"; // assume 'fade' if not specified
 
-        // Guards
+        // Guards (from parents to leaf)
         const parents = route.parents || [];
         const guardRes = await runGuards(parents, route, ctx);
         if (rid !== this.#renderId) return;
@@ -263,23 +191,21 @@ export default class Router {
             return;
         }
 
-        // Was there content already mounted?
-        const hasPrev = this.#currentView !== null || this.#mountEl.childElementCount > 0;
+        const mount = this.#mountEl;
 
-        // Transition OUT only if there was a previous view
-        if (this.#transition && hasPrev) {
-            await Promise.resolve(this.#transition(this.#mountEl, "out"));
+        // OUT phase only if something is already rendered
+        if (this.#transition && mount.childElementCount > 0) {
+            await Promise.resolve(this.#transition(mount, "out"));
+            if (rid !== this.#renderId) return;
         }
 
-        // 1) destroy previous leaf view
+        // Tear down previous instances
         this.#currentView?.destroy?.();
         this.#currentView = null;
-
-        // 2) destroy old layouts (timers, listeners, etc.)
         for (const lay of this.#currentLayouts) lay?.destroy?.();
         this.#currentLayouts = [];
 
-        // Load layouts (outer -> inner) and component for leaf
+        // Lazy load layouts and leaf
         /** @type {any[]} */
         const layoutInsts = [];
         for (const p of parents) {
@@ -298,7 +224,8 @@ export default class Router {
         if (rid !== this.#renderId) return;
 
         html = typeof html === "string" ? html : String(html);
-        // wrap inner -> outer
+
+        // Compose layouts (inner -> outer) with <!-- router-slot -->
         for (let i = layoutInsts.length - 1; i >= 0; i--) {
             const inst = layoutInsts[i];
             let shell = await inst.getHTML();
@@ -310,32 +237,21 @@ export default class Router {
             html = shell.replace("<!-- router-slot -->", html);
         }
 
-        // --- create the new composed HTML as before ---
-        const newSlot = document.createElement("div");
-        newSlot.className = "view-slot";
-        newSlot.innerHTML = html;
+        // Swap content
+        mount.innerHTML = html;
 
-        const mount = this.#mountEl;
-        const oldSlot = mount.querySelector(".view-slot");
-
-        // Append new slot (it starts in its initial state per CSS: offscreen/transparent)
-        mount.appendChild(newSlot);
-
-        // Mount hooks (so the new view is live before animating "in")
+        // Mount hooks
         this.#currentLayouts = layoutInsts;
         for (const inst of this.#currentLayouts) inst.mount?.();
         this.#currentView = leaf;
         leaf.mount?.();
 
-        // Animate
+        // IN phase
         if (this.#transition) {
-            const tasks = [this.#transition(newSlot, "in")];
-            if (oldSlot) tasks.push(this.#transition(oldSlot, "out"));
-            await Promise.all(tasks);
+            await Promise.resolve(this.#transition(mount, "in"));
+            if (rid !== this.#renderId) return;
         }
 
-        // Cleanup old
-        oldSlot?.remove();
         this.#isAnimating = false;
     }
 }
