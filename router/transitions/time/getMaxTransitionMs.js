@@ -6,10 +6,11 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/23 16:04:29 by jeportie          #+#    #+#             //
-//   Updated: 2025/08/23 16:04:31 by jeportie         ###   ########.fr       //
+//   Updated: 2025/08/23 18:06:19 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
+import { parseCssTimeToMs } from "./parseCssTimeToMs.js";
 /**
  * Compute the *maximum* total transition time (duration + delay) in ms
  * for the given element, considering multiple comma-separated values.
@@ -18,7 +19,7 @@
  * @param {HTMLElement} el
  * @returns {number} maximum time in milliseconds
  */
-function getMaxTransitionMs(el) {
+export function getMaxTransitionMs(el) {
     const cs = getComputedStyle(el);
     const durList = cs.transitionDuration.split(",").map(parseCssTimeToMs);
     const delList = cs.transitionDelay.split(",").map(parseCssTimeToMs);

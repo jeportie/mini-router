@@ -6,7 +6,7 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/23 16:03:52 by jeportie          #+#    #+#             //
-//   Updated: 2025/08/23 16:03:54 by jeportie         ###   ########.fr       //
+//   Updated: 2025/08/23 18:06:16 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
@@ -17,7 +17,7 @@
  * @param {string} s
  * @returns {number} milliseconds
  */
-function parseCssTimeToMs(s) {
+export function parseCssTimeToMs(s) {
     const v = String(s || "").trim();
     if (!v) return 0;
     if (v.endsWith("ms")) return parseFloat(v) || 0;

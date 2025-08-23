@@ -1,14 +1,16 @@
 // ************************************************************************** //
 //                                                                            //
 //                                                        :::      ::::::::   //
-//   transition.js                                      :+:      :+:    :+:   //
+//   tailwind.js                                        :+:      :+:    :+:   //
 //                                                    +:+ +:+         +:+     //
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/22 16:00:20 by jeportie          #+#    #+#             //
-//   Updated: 2025/08/23 16:11:56 by jeportie         ###   ########.fr       //
+//   Updated: 2025/08/23 18:08:55 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
+
+import { getMaxTransitionMs } from "./time/getMaxTransitionMs.js";
 
 export function createRouteTransition(defaultVariant = "fade") {
     return function transition(el, phase) {
@@ -46,16 +48,8 @@ export function createRouteTransition(defaultVariant = "fade") {
                 void el.offsetWidth; // force layout
                 el.classList.add(phase === "out" ? "route-leave-active" : "route-enter-active");
                 el.addEventListener("transitionend", onEnd, { once: true });
-
-                // tiny safety timeout based on the FIRST transition (good enough for #app)
-                const cs = getComputedStyle(el);
-                const toMs = (s) =>
-                    s.endsWith("ms") ? parseFloat(s) || 0 :
-                        s.endsWith("s") ? (parseFloat(s) || 0) * 1000 : 0;
-
-                const dur = toMs((cs.transitionDuration.split(",")[0] || "0s").trim());
-                const del = toMs((cs.transitionDelay.split(",")[0] || "0s").trim());
-                setTimeout(finish, (dur + del || 0) + 50);
+                const total = getMaxTransitionMs(el);
+                setTimeout(finish, (total || 0) + 50);
             });
         });
     };
