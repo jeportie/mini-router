@@ -6,47 +6,26 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/23 17:31:26 by jeportie          #+#    #+#             //
-//   Updated: 2025/08/23 17:32:59 by jeportie         ###   ########.fr       //
+//   Updated: 2025/08/23 17:45:32 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
-import { normalize, parseQuery } from "../routerTools.js";
+import { normalize } from "../routerTools.js";
 import { ensureComponent, runGuards } from "../routerInternals.js";
+import { matchPathname } from "./matching/matchPathname.js";
+import { buildContext } from "./context/buildContext.js";
 
 /**
- * @param {{
- *   routes: any[],
- *   notFound: any,
- *   mountEl: HTMLElement,
- *   transition?: (el:HTMLElement, phase:"out"|"in")=>void|Promise<void>,
- *   state: {
- *     renderId: number,
- *     busy: boolean,
- *     currentView: any,
- *     currentLayouts: any[],
- *   },
- *   navigate: (to:string, opts?:{replace?:boolean, state?:any})=>Promise<void>,
- * }} env
+ * @param {object} env
  * @param {number} rid
  */
 export async function renderPipeline(env, rid) {
     const { routes, notFound, mountEl, transition, state } = env;
 
-    // match (inline for step 1, we’ll extract in step 2)
     const pathname = normalize(window.location.pathname);
-    let match = null;
-    for (const r of routes) {
-        const m = pathname.match(r.regex);
-        if (!m) continue;
-        const values = m.slice(1);
-        const params = {};
-        r.keys.forEach((k, i) => { params[k] = decodeURIComponent(values[i] ?? ""); });
-        match = { route: r, params };
-        break;
-    }
-
-    const route = match?.route || notFound;
-    const params = match?.params || {};
+    const m = matchPathname(pathname, routes);
+    const route = m?.route || notFound;
+    const params = m?.params || {};
 
     if (!route) {
         mountEl.innerHTML = "<h1>Not Found</h1>";
@@ -54,16 +33,8 @@ export async function renderPipeline(env, rid) {
         return;
     }
 
-    // build context (inline for step 1)
-    const ctx = {
-        path: pathname,
-        params,
-        query: parseQuery(window.location.search),
-        hash: (window.location.hash || "").replace(/^#/, ""),
-        state: history.state,
-    };
+    const ctx = buildContext(pathname, params);
 
-    // guards
     const parents = route.parents || [];
     const guardRes = await runGuards(parents, route, ctx);
     if (rid !== state.renderId) return;
@@ -74,20 +45,16 @@ export async function renderPipeline(env, rid) {
         return;
     }
 
-    // OUT phase (only if something already rendered)
     if (transition && mountEl.childElementCount > 0) {
         await Promise.resolve(transition(mountEl, "out"));
         if (rid !== state.renderId) return;
     }
 
-    // tear down old
     state.currentView?.destroy?.();
     state.currentView = null;
     for (const lay of state.currentLayouts) lay?.destroy?.();
     state.currentLayouts = [];
 
-    // load layouts & leaf
-    /** @type {any[]} */
     const layoutInsts = [];
     for (const p of parents) {
         if (!p.layout) continue;
@@ -104,7 +71,6 @@ export async function renderPipeline(env, rid) {
     if (rid !== state.renderId) return;
     html = typeof html === "string" ? html : String(html);
 
-    // compose layouts (inner → outer)
     for (let i = layoutInsts.length - 1; i >= 0; i--) {
         const inst = layoutInsts[i];
         let shell = await inst.getHTML();
@@ -116,16 +82,13 @@ export async function renderPipeline(env, rid) {
         html = shell.replace("<!-- router-slot -->", html);
     }
 
-    // swap content
     mountEl.innerHTML = html;
 
-    // mount hooks
     state.currentLayouts = layoutInsts;
     for (const inst of state.currentLayouts) inst.mount?.();
     state.currentView = leaf;
     leaf.mount?.();
 
-    // IN phase
     if (transition) {
         await Promise.resolve(transition(mountEl, "in"));
         if (rid !== state.renderId) return;
