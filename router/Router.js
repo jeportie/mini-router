@@ -267,9 +267,9 @@ export default class Router {
         const hasPrev = this.#currentView !== null || this.#mountEl.childElementCount > 0;
 
         // Transition OUT only if there was a previous view
-        //     if (this.#transition && hasPrev) {
-        //         await Promise.resolve(this.#transition(this.#mountEl, "out"));
-        //     }
+        if (this.#transition && hasPrev) {
+            await Promise.resolve(this.#transition(this.#mountEl, "out"));
+        }
 
         // 1) destroy previous leaf view
         this.#currentView?.destroy?.();
@@ -310,85 +310,32 @@ export default class Router {
             html = shell.replace("<!-- router-slot -->", html);
         }
 
-        // ----- create the new composed HTML as before -----
+        // --- create the new composed HTML as before ---
         const newSlot = document.createElement("div");
         newSlot.className = "view-slot";
         newSlot.innerHTML = html;
 
-        // ensure the mount is positioned for overlap (harmless in fade too)
         const mount = this.#mountEl;
-        if (getComputedStyle(mount).position === "static") {
-            mount.style.position = "relative";
-        }
-
-        // measure & lock container height to prevent jumps during overlap
         const oldSlot = mount.querySelector(".view-slot");
-        const oldH = oldSlot ? oldSlot.getBoundingClientRect().height : mount.getBoundingClientRect().height;
-        if (oldH > 0) mount.style.minHeight = oldH + "px";
 
+        // Append new slot (it starts in its initial state per CSS: offscreen/transparent)
+        mount.appendChild(newSlot);
 
-        // guard: if this render got superseded already, bail before DOM ops
-        if (rid !== this.#renderId) { this.#isAnimating = false; return; }
+        // Mount hooks (so the new view is live before animating "in")
+        this.#currentLayouts = layoutInsts;
+        for (const inst of this.#currentLayouts) inst.mount?.();
+        this.#currentView = leaf;
+        leaf.mount?.();
 
-        // ---- Variant-aware sequencing ----
-        if (variant === "fade") {
-            // SEQUENTIAL FADE:
-            // 1) OUT the old slot to transparent, remove it
-            if (this.#transition && oldSlot) {
-                await Promise.resolve(this.#transition(oldSlot, "out"));
-                if (rid !== this.#renderId) { this.#isAnimating = false; return; }
-                oldSlot.remove();
-            } else if (oldSlot) {
-                oldSlot.remove();
-            }
-
-            // 2) Append new slot (starts invisible per CSS), then IN
-            mount.appendChild(newSlot);
-
-            // mount hooks for new content
-            this.#currentLayouts = layoutInsts;
-            for (const inst of this.#currentLayouts) inst.mount?.();
-            this.#currentView = leaf;
-            leaf.mount?.();
-
-            if (this.#transition) {
-                await Promise.resolve(this.#transition(newSlot, "in"));
-                if (rid !== this.#renderId) { this.#isAnimating = false; return; }
-            }
-        } else {
-            // OVERLAP PUSH (slide / zoom):
-            // 1) Append new slot (it starts offscreen for slide)
-            mount.appendChild(newSlot);
-
-            // 2) OUT the old slot while the new moves IN, then remove old
-            if (this.#transition && oldSlot) {
-                await Promise.resolve(this.#transition(oldSlot, "out"));
-                if (rid !== this.#renderId) { this.#isAnimating = false; return; }
-                oldSlot.remove();
-            } else if (oldSlot) {
-                oldSlot.remove();
-            }
-
-            // (Hard cap) if anything else slipped in, keep last 2 only
-            const slots = mount.querySelectorAll(".view-slot");
-            if (slots.length > 2) {
-                for (let i = 0; i < slots.length - 2; i++) slots[i].remove();
-            }
-
-            // 3) mount hooks
-            this.#currentLayouts = layoutInsts;
-            for (const inst of this.#currentLayouts) inst.mount?.();
-            this.#currentView = leaf;
-            leaf.mount?.();
-
-            if (this.#transition) {
-                await Promise.resolve(this.#transition(newSlot, "in"));
-                if (rid !== this.#renderId) { this.#isAnimating = false; return; }
-            }
+        // Animate
+        if (this.#transition) {
+            const tasks = [this.#transition(newSlot, "in")];
+            if (oldSlot) tasks.push(this.#transition(oldSlot, "out"));
+            await Promise.all(tasks);
         }
 
-        // release height lock
-        mount.style.minHeight = "";
+        // Cleanup old
+        oldSlot?.remove();
         this.#isAnimating = false;
     }
 }
