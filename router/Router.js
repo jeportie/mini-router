@@ -6,17 +6,14 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/21 13:55:36 by jeportie          #+#    #+#             //
-//   Updated: 2025/08/24 00:07:00 by jeportie         ###   ########.fr       //
+//   Updated: 2025/08/24 01:43:05 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
 import { pathToRegex, expandRoutes } from "./internals/routing.js";
 import { renderPipeline } from "./internals/render.js";
 import { createHandlers } from "./internals/events.js";
-import { toEngine } from "./transitions/index.js";
-import { tailwindEngine } from "./transitions/tailwindEngine.js";
-import { noopEngine } from "./transitions/noopEngine.js";
-import { wcEngine } from "./transitions/wcEngine.js";
+import AbstractAnimationHook from "./transitions/AbstractAnimationHook.js";
 
 /**
  * @typedef RouterOptions
@@ -24,8 +21,7 @@ import { wcEngine } from "./transitions/wcEngine.js";
  * @prop {string} [mountSelector="#app"]
  * @prop {string} [linkSelector="[data-link]"]
  * @prop {(to:string)=>boolean|void|Promise<boolean|void>} [onBeforeNavigate]
- * @prop {(el:HTMLElement, phase:"out"|"in")=> (void|Promise<void>) | { run:(el:HTMLElement,phase:"out"|"in",ctx?:any)=>void|Promise<void> } | { engine:string, [key:string]:any }} [transition]
- * @prop {"container"|"overlap"|"auto"} [transitionMode]  // used when transition is a function/engine object
+ * @prop {AbstractAnimationHook} [animationHook]   // pluggable animation hook
  * @prop {string} [notFoundPath]
  */
 export default class Router {
@@ -36,13 +32,8 @@ export default class Router {
     #onBeforeNavigate;
     #started = false;
 
-    // engines
-    #engineRegistry;
-    #defaultEngine;
-
-    // keep raw for resolving variant/mode later
-    #routerDefaultSpec;
-    #routerDefaultMode;
+    // animation hook
+    #animationHook;
 
     #state = {
         renderId: 0,
@@ -59,13 +50,6 @@ export default class Router {
             throw new Error("Router: you must provide a non-empty routes array.");
         }
 
-        // Build registry (add more later: waapi, svg, canvas...)
-        this.#engineRegistry = {
-            tailwind: (spec = {}) => tailwindEngine(spec.variant || "fade"),
-            wc: (spec = {}) => wcEngine(spec.tag || "page-transition"),
-            noop: () => noopEngine(),
-        };
-
         const flat = expandRoutes(opts.routes, "/");
         this.#routes = flat.map((r) => {
             const { regex, keys, isCatchAll } = pathToRegex(r.fullPath === "/*" ? "*" : r.fullPath);
@@ -77,7 +61,7 @@ export default class Router {
                 component: r.component,
                 layout: r.layout,
                 beforeEnter: r.beforeEnter,
-                transition: r.transition,
+                transition: r.transition, // left for userland; renderer no longer interprets this
                 parents: r.parents,
             };
         });
@@ -95,10 +79,9 @@ export default class Router {
         this.#linkSelector = opts.linkSelector ?? "[data-link]";
         this.#onBeforeNavigate = opts.onBeforeNavigate;
 
-        // store raw + mode, and also normalize to an engine for execution
-        this.#routerDefaultSpec = opts.transition;
-        this.#routerDefaultMode = opts.transitionMode ?? "auto";
-        this.#defaultEngine = toEngine(opts.transition, this.#engineRegistry);
+        // resolve animation hook (default = hard swap)
+        this.#animationHook =
+            opts.animationHook instanceof Object ? opts.animationHook : new AbstractAnimationHook();
 
         const { onPopState, onClick } = createHandlers({
             linkSelector: this.#linkSelector,
@@ -158,15 +141,11 @@ export default class Router {
                 routes: this.#routes,
                 notFound: this.#notFound,
                 mountEl: this.#mountEl,
-                transitionEngine: this.#defaultEngine,
-                engineRegistry: this.#engineRegistry,
-                routerDefaultSpec: this.#routerDefaultSpec,
-                routerDefaultMode: this.#routerDefaultMode,
                 state: this.#state,
                 navigate: this.navigateTo.bind(this),
+                animationHook: this.#animationHook,
             },
             this.#state.renderId
         );
     }
 }
-
