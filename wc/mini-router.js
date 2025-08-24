@@ -13,7 +13,6 @@
 
 import Router from "../router/Router.js";
 import AbstractAnimationHook from "../transitions/AbstractAnimationHook.js";
-import AbstractTransitionHook from "../transitions/AbstractTransitionHook.js";
 
 export function defineMiniRouter(tagName = "mini-router") {
     if (!customElements.get(tagName)) customElements.define(tagName, MiniRouterElement);
