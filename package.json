@@ -10,7 +10,8 @@
         "index.js",
         "router/",
         "wc/",
-        "views/"
+        "views/",
+        "transitions"
     ],
     "keywords": [
         "spa",
