@@ -13,7 +13,7 @@
 import { pathToRegex, expandRoutes } from "./internals/routing.js";
 import { renderPipeline } from "./internals/render.js";
 import { createHandlers } from "./internals/events.js";
-import AbstractAnimationHook from "./transitions/AbstractAnimationHook.js";
+import AbstractAnimationHook from "../transitions/AbstractAnimationHook.js";
 
 /**
  * @typedef RouterOptions

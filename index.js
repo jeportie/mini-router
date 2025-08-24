@@ -19,4 +19,4 @@ export { defineMiniRouter } from "./wc/mini-router.js";
 export { default as AbstractView } from "./views/AbstractView.js";
 export { default as AbstractLayout } from "./views/AbstractLayout.js";
 
-export { default as AbstractAnimationHook } from "./router/transitions/AbstractAnimationHook.js";
+export { default as AbstractAnimationHook } from "./transitions/AbstractAnimationHook.js";

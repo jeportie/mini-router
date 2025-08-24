@@ -12,7 +12,8 @@
 
 
 import Router from "../router/Router.js";
-import AbstractTransitionHook from "../router/transitions/AbstractTransitionHook.js";
+import AbstractAnimationHook from "../transitions/AbstractAnimationHook.js";
+import AbstractTransitionHook from "../transitions/AbstractTransitionHook.js";
 
 export function defineMiniRouter(tagName = "mini-router") {
     if (!customElements.get(tagName)) customElements.define(tagName, MiniRouterElement);
@@ -25,7 +26,7 @@ class MiniRouterElement extends HTMLElement {
         this._routes = [];
         this._linkSelector = "[data-link]";
         this._onBeforeNavigate = undefined;
-        this._animationHook = new AbstractTransitionHook(); // <—
+        this._animationHook = new AbstractAnimationHook(); // <—
         this._started = false;
     }
     static get observedAttributes() { return ["autostart"]; }
@@ -59,7 +60,7 @@ class MiniRouterElement extends HTMLElement {
 
     // NEW: animationHook property
     get animationHook() { return this._animationHook; }
-    set animationHook(h) { this._animationHook = h || new AbstractTransitionHook(); if (this._router) this._recreate(); }
+    set animationHook(h) { this._animationHook = h || new AbstractAnimationHook(); if (this._router) this._recreate(); }
 
     _ensureRouter() {
         if (this._router) return;
