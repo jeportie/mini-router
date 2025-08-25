@@ -87,7 +87,8 @@ export async function renderPipeline(env, rid) {
     const { pathname, route, params } = resolveMatch(routes, notFound);
     if (handleNotFound(route, mountEl, state)) return;
 
-    const nextLayoutCtor = route.parents?.at(-1)?.layout ?? null;
+    const maybeLayout = route.parents?.at(-1)?.layout ?? null;
+    const nextLayoutCtor = maybeLayout ? await ensureComponent(maybeLayout) : null;
 
     const ctx = buildContext(pathname, params);
 
