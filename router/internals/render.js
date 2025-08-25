@@ -97,6 +97,10 @@ export async function renderPipeline(env, rid) {
     });
     if (guardStatus !== "continue") return;
 
+    // ── choose the active hook (route → nearest parent → global)
+    const parentWithHook = (route.parents || []).slice().reverse().find(p => p.animationHook);
+    const activeHook = route.animationHook || parentWithHook?.animationHook || animationHook;
+
     const helpers = {
         isStale: () => rid !== state.renderId,
         teardown: () => teardownCurrent(state, nextLayoutCtor),
@@ -129,7 +133,7 @@ export async function renderPipeline(env, rid) {
     };
 
     try {
-        await animationHook.mount({ mountEl, ctx, helpers });
+        await activeHook.mount({ mountEl, ctx, helpers });
     } finally {
         state.busy = false;
     }
