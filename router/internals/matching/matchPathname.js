@@ -22,6 +22,7 @@
  * @param {CompiledRoute[]} routes
  * @returns {Match}
  */
+// router/internals/matching/matchPathname.js
 export function matchPathname(pathname, routes) {
     const matches = [];
 
@@ -37,17 +38,22 @@ export function matchPathname(pathname, routes) {
     if (matches.length === 0) return null;
 
     matches.sort((a, b) => {
-        // 1) longest path first
+        // 0) NEVER pick the catch-all if a specific route matched
+        const aCatch = !!a.route.isCatchAll;
+        const bCatch = !!b.route.isCatchAll;
+        if (aCatch !== bCatch) return aCatch ? 1 : -1;
+
+        // 1) prefer routes that actually render a view
+        const aHasView = Boolean(a.route.component || a.route.view);
+        const bHasView = Boolean(b.route.component || b.route.view);
+        if (aHasView !== bHasView) return aHasView ? -1 : 1;
+
+        // 2) longer fullPath (more specific)
         const al = a.route.fullPath?.length ?? 0;
         const bl = b.route.fullPath?.length ?? 0;
         if (al !== bl) return bl - al;
 
-        // 2) prefer routes that actually render a view
-        const ac = Boolean(a.route.component || a.route.view);
-        const bc = Boolean(b.route.component || b.route.view);
-        if (ac !== bc) return ac ? -1 : 1;
-
-        // 3) deeper nesting last
+        // 3) deeper nesting
         const ap = a.route.parents?.length ?? 0;
         const bp = b.route.parents?.length ?? 0;
         return bp - ap;
@@ -55,4 +61,3 @@ export function matchPathname(pathname, routes) {
 
     return matches[0];
 }
-
