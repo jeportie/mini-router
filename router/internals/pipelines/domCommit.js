@@ -23,7 +23,7 @@
  * }} deps
  * @returns {Promise<{ viewInstance:any, layoutInstances:any[] }>}
  */
-export async function domCommit({ mountEl, targetEl, layouts, leaf, rid, state }) {
+export async function domCommit({ mountEl, targetEl, layouts, leaf, rid, state, leafOnly }) {
     const host = targetEl || mountEl;
 
     // Start with leaf view HTML
@@ -32,23 +32,27 @@ export async function domCommit({ mountEl, targetEl, layouts, leaf, rid, state }
     html = typeof html === "string" ? html : String(html);
 
     // Wrap through layouts (inner → outer)
-    for (let i = layouts.length - 1; i >= 0; i--) {
-        const inst = layouts[i];
-        let shell = await inst.getHTML();
-        if (rid !== state.renderId) return { viewInstance: null, layoutInstances: [] };
-        shell = typeof shell === "string" ? shell : String(shell);
-        if (!shell.includes("<!-- router-slot -->")) {
-            throw new Error("Layout missing <!-- router-slot -->");
+    if (!leafOnly) {
+        for (let i = layouts.length - 1; i >= 0; i--) {
+            const inst = layouts[i];
+            let shell = await inst.getHTML();
+            if (rid !== state.renderId) return { viewInstance: null, layoutInstances: [] };
+            shell = typeof shell === "string" ? shell : String(shell);
+            if (!shell.includes("<!-- router-slot -->")) {
+                throw new Error("Layout missing <!-- router-slot -->");
+            }
+            html = shell.replace("<!-- router-slot -->", html);
         }
-        html = shell.replace("<!-- router-slot -->", html);
     }
 
     // Commit to DOM
     host.innerHTML = html;
 
     // Mount hooks
-    for (const inst of layouts) inst.mount?.();
-    leaf.layout = layouts[layouts.length - 1] ?? null;
+    if (!leafOnly)
+        for (const inst of layouts) inst.mount?.();
+    if (!leafOnly)
+        leaf.layout = layouts[layouts.length - 1] ?? null;
     leaf.mount?.();
 
     return {

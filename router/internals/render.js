@@ -44,8 +44,18 @@ function teardownCurrent(state) {
         state.currentView.layout = null;
     state.currentView = null;
 
-    for (const lay of state.currentLayouts) lay?.destroy?.();
-    state.currentLayouts = [];
+    const last = state.currentLayouts[state.currentLayouts.length - 1];
+    const reuse =
+        last && nextLayoutCtor &&
+        last.constructor === nextLayoutCtor;
+
+    for (let i = 0; i < state.currentLayouts.length; i++) {
+        const lay = state.currentLayouts[i];
+        if (!reuse || i < state.currentLayouts.length - 1) {
+            lay?.destroy?.();
+        }
+    }
+    if (!reuse) state.currentLayouts = [];
 }
 
 async function ensureLayouts(parents, ctx, rid, state) {
@@ -77,6 +87,8 @@ export async function renderPipeline(env, rid) {
     const { pathname, route, params } = resolveMatch(routes, notFound);
     if (handleNotFound(route, mountEl, state)) return;
 
+    const nextLayoutCtor = route.parents?.at(-1)?.layout ?? null;
+
     const ctx = buildContext(pathname, params);
 
     const guardStatus = await applyGuards({
@@ -86,17 +98,26 @@ export async function renderPipeline(env, rid) {
 
     const helpers = {
         isStale: () => rid !== state.renderId,
-        teardown: () => teardownCurrent(state),
-        commit: async (targetEl) => {
-            const { stale: s1, layouts } = await ensureLayouts(route.parents, ctx, rid, state);
+        teardown: () => teardownCurrent(state, nextLayoutCtor),
+        teardownLeaf: () => {
+            state.currentView?.destroy?.();
+            if (state.currentView)
+                state.currentView.layout = null;
+            state.currentView = null;
+        },
+        commit: async ({ targetEl, leafOnly } = {}) => {
+            const { stale: s1, layouts } = leafOnly
+                ? { stale: false, layouts: [] }
+                : await ensureLayouts(route.parents, ctx, rid, state);
             if (s1 || helpers.isStale()) return;
             const { stale: s2, leaf } = await ensureLeaf(route, ctx, rid, state);
             if (s2 || helpers.isStale()) return;
 
-            const committed = await domCommit({ mountEl, targetEl, layouts, leaf, rid, state });
-            if (helpers.isStale()) return;
-
-            state.currentLayouts = committed.layoutInstances;
+            const committed = await domCommit({ mountEl, targetEl, layouts, leaf, rid, state, leafOnly });
+            if (helpers.isStale())
+                return;
+            if (!leafOnly)
+                state.currentLayouts = committed.layoutInstances;
             state.currentView = committed.viewInstance;
         }
     };
