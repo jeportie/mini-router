@@ -23,13 +23,36 @@
  * @returns {Match}
  */
 export function matchPathname(pathname, routes) {
+    const matches = [];
+
     for (const r of routes) {
         const m = pathname.match(r.regex);
         if (!m) continue;
         const values = m.slice(1);
         const params = {};
         r.keys.forEach((k, i) => { params[k] = decodeURIComponent(values[i] ?? ""); });
-        return { route: r, params };
+        matches.push({ route: r, params });
     }
-    return null;
+
+    if (matches.length === 0) return null;
+
+    matches.sort((a, b) => {
+        // 1) longest path first
+        const al = a.route.fullPath?.length ?? 0;
+        const bl = b.route.fullPath?.length ?? 0;
+        if (al !== bl) return bl - al;
+
+        // 2) prefer routes that actually render a view
+        const ac = Boolean(a.route.component || a.route.view);
+        const bc = Boolean(b.route.component || b.route.view);
+        if (ac !== bc) return ac ? -1 : 1;
+
+        // 3) deeper nesting last
+        const ap = a.route.parents?.length ?? 0;
+        const bp = b.route.parents?.length ?? 0;
+        return bp - ap;
+    });
+
+    return matches[0];
 }
+
