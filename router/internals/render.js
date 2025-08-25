@@ -38,7 +38,7 @@ async function applyGuards({ parents, route, ctx, rid, state, navigate }) {
     return "continue";
 }
 
-function teardownCurrent(state) {
+function teardownCurrent(state, nextLayoutCtor) {
     state.currentView?.destroy?.();
     if (state.currentView)
         state.currentView.layout = null;

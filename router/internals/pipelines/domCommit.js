@@ -53,6 +53,8 @@ export async function domCommit({ mountEl, targetEl, layouts, leaf, rid, state, 
         for (const inst of layouts) inst.mount?.();
     if (!leafOnly)
         leaf.layout = layouts[layouts.length - 1] ?? null;
+    else
+        leaf.layout = (state.currentLayouts?.[state.currentLayouts.length - 1]) ?? null;
     leaf.mount?.();
 
     return {
