@@ -48,6 +48,7 @@ export async function domCommit({ mountEl, targetEl, layouts, leaf, rid, state }
 
     // Mount hooks
     for (const inst of layouts) inst.mount?.();
+    leaf.layout = layouts[layouts.length - 1] ?? null;
     leaf.mount?.();
 
     return {
