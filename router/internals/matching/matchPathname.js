@@ -23,7 +23,8 @@
  * @returns {Match}
  */
 export function matchPathname(pathname, routes) {
-    for (const r of routes) {
+    for (let i = routes.length - 1; i >= 0; i--) {
+        const r = routes[i];
         const m = pathname.match(r.regex);
         if (!m) continue;
         const values = m.slice(1);
