@@ -61,6 +61,7 @@ export function expandRoutes(routes, base = "/", parents = []) {
             layout: r.layout,
             beforeEnter: r.beforeEnter,
             transition: r.transition,
+            animationHook: r.animationHook,
             parents, // keep current chain (shallow)
             children: r.children,
         };

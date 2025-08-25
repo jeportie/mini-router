@@ -62,6 +62,7 @@ export default class Router {
                 layout: r.layout,
                 beforeEnter: r.beforeEnter,
                 transition: r.transition, // left for userland; renderer no longer interprets this
+                animationHook: r.animationHook,
                 parents: r.parents,
             };
         });
