@@ -105,6 +105,11 @@ export async function renderPipeline(env, rid) {
                 state.currentView.layout = null;
             state.currentView = null;
         },
+        // NEW: tells hooks whether we’re staying under the same top layout
+        sameLayout: () => {
+            const last = state.currentLayouts?.[state.currentLayouts.length - 1] ?? null;
+            return !!(last && nextLayoutCtor && last.constructor === nextLayoutCtor);
+        },
         commit: async ({ targetEl, leafOnly } = {}) => {
             const { stale: s1, layouts } = leafOnly
                 ? { stale: false, layouts: [] }
