@@ -46,7 +46,11 @@ export async function domCommit({ mountEl, targetEl, layouts, leaf, rid, state, 
     }
 
     // Commit to DOM
-    host.innerHTML = html;
+    if (targetEl) {
+        targetEl.innerHTML = html;
+    } else {
+        host.innerHTML = html;
+    }
 
     // Mount hooks
     if (!leafOnly)
