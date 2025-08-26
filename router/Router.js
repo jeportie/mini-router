@@ -113,7 +113,8 @@ export default class Router {
      * @param {{ replace?: boolean, state?: any }} [opts]
      */
     async navigateTo(url, opts) {
-        if (this.#state.busy) return;
+        const force = opts?.force === true;
+        if (this.#state.busy && !force) return;
         const next = new URL(url, location.origin);
         const curr = location;
         if (next.pathname === curr.pathname &&

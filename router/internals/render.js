@@ -33,7 +33,9 @@ async function applyGuards({ parents, route, ctx, rid, state, navigate }) {
     if (rid !== state.renderId) { state.busy = false; return "stale"; }
     if (res?.action === "block") { state.busy = false; return "blocked"; }
     if (res?.action === "redirect") {
-        await navigate(res.to, { replace: true }); state.busy = false; return "redirected";
+        await navigate(res.to, { replace: true, force: true });
+        state.busy = false;
+        return "redirected";
     }
     return "continue";
 }
