@@ -23,22 +23,12 @@ export class AuthService {
     #refreshFn;
     logger;
 
-    /**
-     * @param {Object} opts
-     * @param {string} [opts.storageKey="session"] - localStorage key used to mark session existence.
-     * @param {() => Promise<string|null>} [opts.refreshFn] - called to refresh and return a new JWT, or null on failure.
-     * @param {{ info:Function, warn:Function, error:Function }} [opts.logger=console] - logging target.
-     */
     constructor({ storageKey = "session", refreshFn, logger = console } = {}) {
         this.#storageKey = storageKey;
         this.#refreshFn = refreshFn;
         this.logger = logger;
     }
 
-    /**
-     * Attempt to initialize from storage by calling refreshFn.
-     * @returns {Promise<boolean>} true if session restored, false otherwise.
-     */
     async initFromStorage() {
         if (!localStorage.getItem(this.#storageKey)) {
             return false;
@@ -78,10 +68,6 @@ export class AuthService {
         localStorage.removeItem(this.#storageKey);
     }
 
-    /**
-     * Check whether the current token is expired.
-     * @param {number} [skewSec=10] - seconds of tolerance before expiry.
-     */
     isTokenExpired(skewSec = 10) {
         const t = this.#token;
         if (!t) return true;
