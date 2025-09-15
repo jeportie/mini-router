@@ -6,7 +6,7 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/22 17:23:51 by jeportie          #+#    #+#             //
-//   Updated: 2025/09/15 14:05:01 by jeportie         ###   ########.fr       //
+//   Updated: 2025/09/15 14:06:53 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
@@ -24,4 +24,4 @@ export { default as AbstractAnimationHook } from "./transitions/AbstractAnimatio
 // Auth utilities
 export { AuthService } from "./auth/AuthService.js";
 export { default as Fetch } from "./auth/Fetch.js";
-export { requireAuth, oneBeforeNavigate } from "./auth/guards.js";
+export { requireAuth, onBeforeNavigate } from "./auth/guards.js";
