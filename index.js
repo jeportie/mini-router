@@ -20,6 +20,7 @@ export { defineMiniRouter } from "./wc/mini-router.js";
 export { default as AbstractView } from "./views/AbstractView.js";
 export { default as AbstractLayout } from "./views/AbstractLayout.js";
 export { default as AbstractAnimationHook } from "./transitions/AbstractAnimationHook.js";
+export { getMaxTransitionMs } from "./transitions/time/getMaxTransitionMs.js";
 
 // Auth utilities
 export { AuthService } from "./auth/AuthService.js";
