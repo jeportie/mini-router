@@ -66,6 +66,7 @@ export class AuthService {
     clear() {
         this.#token = null;
         localStorage.removeItem(this.#storageKey);
+        this.logger.info?.("[Auth] Session cleared");
     }
 
     isTokenExpired(skewSec = 10) {

@@ -25,6 +25,7 @@ import AbstractAnimationHook from "../transitions/AbstractAnimationHook.js";
  * @prop {string} [notFoundPath]
  */
 export default class Router {
+    logger;
     #routes = [];
     #notFound;
     #mountEl;
@@ -33,17 +34,13 @@ export default class Router {
     #started = false;
     #beforeStartHooks = [];
     #afterStartHooks = [];
-
-    // animation hook
     #animationHook;
-
     #state = {
         renderId: 0,
         busy: false,
         currentView: null,
         currentLayouts: [],
     };
-
     #onPopState;
     #onClick;
 
@@ -51,6 +48,8 @@ export default class Router {
         if (!opts || !Array.isArray(opts.routes) || opts.routes.length === 0) {
             throw new Error("Router: you must provide a non-empty routes array.");
         }
+        this.logger = opts.logger ?? console;
+        this.logger.info?.("[Router] Initializing with", opts.routes.length, "routes");
 
         const flat = expandRoutes(opts.routes, "/");
         this.#routes = flat.map((r) => {
@@ -106,6 +105,7 @@ export default class Router {
     async start() {
         if (this.#started)
             return;
+        this.logger.info?.("[Router] Starting...");
         for (const fn of this.#beforeStartHooks) {
             await fn();
         }
@@ -121,7 +121,9 @@ export default class Router {
     }
 
     stop() {
-        if (!this.#started) return;
+        if (!this.#started)
+            return;
+        this.logger.info?.("[Router] Stopping router");
         this.#started = false;
         window.removeEventListener("popstate", this.#onPopState);
         document.body.removeEventListener("click", this.#onClick);
@@ -133,7 +135,8 @@ export default class Router {
      */
     async navigateTo(url, opts) {
         const force = opts?.force === true;
-        if (this.#state.busy && !force) return;
+        if (this.#state.busy && !force)
+            return;
         const next = new URL(url, location.origin);
         const curr = location;
         if (next.pathname === curr.pathname &&
@@ -143,8 +146,10 @@ export default class Router {
             return; // nothing to do
         }
         if (this.#onBeforeNavigate) {
+            this.logger.info?.("[Router] onBeforeNavigate check for", url);
             const result = await this.#onBeforeNavigate(url);
-            if (result === false) return;
+            if (result === false)
+                return;
         }
         if (opts?.replace) {
             history.replaceState(opts?.state ?? null, "", url);
@@ -157,8 +162,10 @@ export default class Router {
     async #render() {
         this.#state.renderId++;
         this.#state.busy = true;
+        this.logger.info?.("[Router] Rendering path:", location.pathname);
         await renderPipeline(
             {
+                logger: this.logger,
                 routes: this.#routes,
                 notFound: this.#notFound,
                 mountEl: this.#mountEl,

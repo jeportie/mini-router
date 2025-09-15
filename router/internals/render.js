@@ -84,9 +84,10 @@ async function ensureLeaf(route, ctx, rid, state) {
  * Orchestrator: no animation logic here.
  */
 export async function renderPipeline(env, rid) {
-    const { routes, notFound, mountEl, state, navigate, animationHook } = env;
+    const { routes, notFound, mountEl, state, navigate, animationHook, logger = console } = env;
 
     const { pathname, route, params } = resolveMatch(routes, notFound);
+    logger.info?.("[Render] Resolving route for:", pathname);
     if (handleNotFound(route, mountEl, state)) return;
 
     const maybeLayout = route.parents?.at(-1)?.layout ?? null;
@@ -97,7 +98,10 @@ export async function renderPipeline(env, rid) {
     const guardStatus = await applyGuards({
         parents: route.parents || [], route, ctx, rid, state, navigate,
     });
-    if (guardStatus !== "continue") return;
+    if (guardStatus !== "continue") {
+        logger.warn?.("[Render] Guard result:", guardStatus);
+        return;
+    }
 
     // ── choose the active hook (route → nearest parent → global)
     const parentWithHook = (route.parents || []).slice().reverse().find(p => p.animationHook);
@@ -131,6 +135,7 @@ export async function renderPipeline(env, rid) {
             if (!leafOnly)
                 state.currentLayouts = committed.layoutInstances;
             state.currentView = committed.viewInstance;
+            logger.info?.("[Render] Mounted view:", committed.viewInstance?.constructor?.name);
         }
     };
 

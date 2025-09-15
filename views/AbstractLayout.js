@@ -63,5 +63,5 @@ export default class AbstractLayout {
      * Cleanup timers, sockets, or event listeners before the layout is destroyed.
      * Override in child classes to implement custom cleanup logic.
      */
-    destroy() { }
+    destroy() { console.debug?.("[Layout] destroy() called"); }
 }

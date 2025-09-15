@@ -36,7 +36,7 @@ export default class AbstractView {
      */
     constructor(ctx) {
         this.#ctx = ctx;
-        console.log(this.#ctx);
+        console.debug?.("[View] Created with ctx:", this.#ctx);
     }
 
     /**

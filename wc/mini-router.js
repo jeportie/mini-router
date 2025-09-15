@@ -26,7 +26,17 @@ class MiniRouterElement extends HTMLElement {
         this._onBeforeNavigate = undefined;
         this._animationHook = new AbstractAnimationHook(); // <—
         this._started = false;
+        this._logger = console;
     }
+
+    get logger() {
+        return this._logger;
+    }
+
+    set logger(v) {
+        this._logger = v || console; if (this._router) this._recreate();
+    }
+
     static get observedAttributes() { return ["autostart"]; }
     attributeChangedCallback(name) {
         if (name === "autostart" && this.isConnected && !this._started) this.start();
@@ -67,7 +77,8 @@ class MiniRouterElement extends HTMLElement {
             mountSelector: `#${this.id}`,
             linkSelector: this._linkSelector,
             onBeforeNavigate: this._onBeforeNavigate,
-            animationHook: this._animationHook,  // <—
+            animationHook: this._animationHook,
+            logger: this._logger,
         });
     }
     _recreate() {

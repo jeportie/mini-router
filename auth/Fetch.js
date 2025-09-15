@@ -72,7 +72,9 @@ export default class Fetch {
             init.body = JSON.stringify(body);
         }
 
+        this.logger.info?.("[Fetch] Sending", method, endpoint);
         let res = await fetch(this.baseURL + endpoint, init);
+        this.logger.info?.("[Fetch] Response", res.status, endpoint);
         let text = await res.text();
         let data = text ? safeJson(text) : null;
 
