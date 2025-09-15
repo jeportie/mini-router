@@ -6,7 +6,7 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/22 17:23:51 by jeportie          #+#    #+#             //
-//   Updated: 2025/08/24 01:39:10 by jeportie         ###   ########.fr       //
+//   Updated: 2025/09/15 14:05:01 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
@@ -16,7 +16,12 @@ export { default as Router } from "./router/Router.js";
 // Web Component
 export { defineMiniRouter } from "./wc/mini-router.js";
 
+// Base classes
 export { default as AbstractView } from "./views/AbstractView.js";
 export { default as AbstractLayout } from "./views/AbstractLayout.js";
-
 export { default as AbstractAnimationHook } from "./transitions/AbstractAnimationHook.js";
+
+// Auth utilities
+export { AuthService } from "./auth/AuthService.js";
+export { default as Fetch } from "./auth/Fetch.js";
+export { requireAuth, oneBeforeNavigate } from "./auth/guards.js";
