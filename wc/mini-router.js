@@ -53,6 +53,7 @@ class MiniRouterElement extends HTMLElement {
         this._router.start();
         this._started = true;
     }
+
     stop() { if (!this._started) return; this._router?.stop(); this._started = false; }
 
     navigateTo(url, opts) { this._router?.navigateTo(url, opts); }
@@ -66,12 +67,12 @@ class MiniRouterElement extends HTMLElement {
     get onBeforeNavigate() { return this._onBeforeNavigate; }
     set onBeforeNavigate(fn) { this._onBeforeNavigate = typeof fn === "function" ? fn : undefined; if (this._router) this._recreate(); }
 
-    // NEW: animationHook property
     get animationHook() { return this._animationHook; }
     set animationHook(h) { this._animationHook = h || new AbstractAnimationHook(); if (this._router) this._recreate(); }
 
     _ensureRouter() {
-        if (this._router) return;
+        if (this._router)
+            return (Promise.resolve());
         this._router = new Router({
             routes: this._routes,
             mountSelector: `#${this.id}`,
