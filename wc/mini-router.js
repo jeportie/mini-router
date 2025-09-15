@@ -10,7 +10,6 @@
 //                                                                            //
 // ************************************************************************** //
 
-
 import Router from "../router/Router.js";
 import AbstractAnimationHook from "../transitions/AbstractAnimationHook.js";
 

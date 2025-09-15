@@ -31,6 +31,8 @@ export default class Router {
     #linkSelector;
     #onBeforeNavigate;
     #started = false;
+    #beforeStartHooks = [];
+    #afterStartHooks = [];
 
     // animation hook
     #animationHook;
@@ -93,12 +95,29 @@ export default class Router {
         this.#onClick = onClick;
     }
 
-    start() {
-        if (this.#started) return;
+    beforeStart(fn) {
+        this.#beforeStartHooks.push(fn);
+    }
+
+    afterStart(fn) {
+        this.#afterStartHooks.push(fn);
+    }
+
+    async start() {
+        if (this.#started)
+            return;
+        for (const fn of this.#beforeStartHooks) {
+            await fn();
+        }
+
         this.#started = true;
         window.addEventListener("popstate", this.#onPopState);
         document.body.addEventListener("click", this.#onClick);
         this.#render();
+
+        for (const fn of this.#afterStartHooks) {
+            await fn();
+        }
     }
 
     stop() {
