@@ -48,10 +48,11 @@ class MiniRouterElement extends HTMLElement {
     disconnectedCallback() { this.stop(); }
 
     start() {
-        if (this._started) return;
+        if (this._started)
+            return (Promise.resolve());
         this._ensureRouter();
-        this._router.start();
         this._started = true;
+        return (this._router.start());
     }
 
     stop() { if (!this._started) return; this._router?.stop(); this._started = false; }
@@ -71,8 +72,7 @@ class MiniRouterElement extends HTMLElement {
     set animationHook(h) { this._animationHook = h || new AbstractAnimationHook(); if (this._router) this._recreate(); }
 
     _ensureRouter() {
-        if (this._router)
-            return (Promise.resolve());
+        if (this._router) return;
         this._router = new Router({
             routes: this._routes,
             mountSelector: `#${this.id}`,
