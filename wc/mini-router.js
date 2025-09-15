@@ -76,5 +76,15 @@ class MiniRouterElement extends HTMLElement {
         this._router = null; this._started = false;
         if (was) this.start();
     }
+
+    beforeStart(fn) {
+        this._ensureRouter();
+        this._router.beforeStart(fn);
+    }
+
+    afterStart(fn) {
+        this._ensureRouter();
+        this._router.afterStart(fn);
+    }
 }
 
