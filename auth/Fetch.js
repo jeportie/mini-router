@@ -102,13 +102,21 @@ export default class Fetch {
         }
 
         if (!res.ok) {
-            const err = new Error(data?.error || data?.message || res.statusText || "Request failed");
+            // Normalize backend error shape
+            const backendError =
+                (data && (data.error || data.message)) ||
+                res.statusText ||
+                "Request failed";
+
+            const err = new Error(backendError);
             err.status = res.status;
             err.code = data?.code || "HTTP_ERROR";
-            err.error = data?.error || null;
+            err.error = data?.error || data?.message || backendError;
+            err.message = backendError; // ensure .message always has readable info
             err.data = data;
             throw err;
         }
+
 
         return data;
     }
