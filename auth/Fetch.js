@@ -102,17 +102,22 @@ export default class Fetch {
         }
 
         if (!res.ok) {
+            // Normalize all possible error message locations
             const backendError =
-                (data && (data.error || data.message)) ||
+                (data?.error && typeof data.error === "string" && data.error) ||
+                (data?.message && typeof data.message === "string" && data.message) ||
                 res.statusText ||
                 "Request failed";
 
+            // Clean Fastify/AJV body paths
             let message = backendError;
-            if (message.startsWith("body/")) {
+            if (/^body\//.test(message)) {
                 message = message
                     .replace(/^body\//, "")
                     .replace(/\buser\b/, "User/Email")
-                    .replace(/\bpwd\b/, "Password");
+                    .replace(/\bpwd\b/, "Password")
+                    .replace(/\bmust\b/, "must") // preserve rest of text
+                    .trim();
             }
 
             const err = new Error(message);
