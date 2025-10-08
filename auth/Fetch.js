@@ -102,11 +102,8 @@ export default class Fetch {
         }
 
         if (!res.ok) {
-            // Normalize backend error shape
             const backendError =
-                (data && (data.error || data.message)) ||
-                res.statusText ||
-                "Request failed";
+                (data && (data.message || data.error)) || res.statusText || "Request failed";
 
             const err = new Error(backendError);
             err.status = res.status;
