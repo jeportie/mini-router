@@ -101,15 +101,30 @@ export default class Fetch {
             }
         }
 
-        if (!res.ok) {
-            const backendError =
-                (data && (data.message || data.error)) || res.statusText || "Request failed";
 
-            const err = new Error(backendError);
+        if (!res.ok) {
+            // Normalize all possible error message locations
+            const backendError =
+                (data?.error && typeof data.error === "string" && data.error) ||
+                (data?.message && typeof data.message === "string" && data.message) ||
+                res.statusText ||
+                "Request failed";
+
+            // Clean Fastify/AJV body paths
+            let message = backendError;
+            if (/^body\//.test(message)) {
+                message = message
+                    .replace(/^body\//, "")
+                    .replace(/\buser\b/, "User/Email")
+                    .replace(/\bpwd\b/, "Password")
+                    .replace(/\bmust\b/, "must") // preserve rest of text
+                    .trim();
+            }
+
+            const err = new Error(message);
             err.status = res.status;
             err.code = data?.code || "HTTP_ERROR";
-            err.error = data?.error || data?.message || backendError;
-            err.message = backendError; // ensure .message always has readable info
+            err.error = data?.error || message;
             err.data = data;
             throw err;
         }
