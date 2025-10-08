@@ -101,34 +101,30 @@ export default class Fetch {
             }
         }
 
-
         if (!res.ok) {
-            // Normalize all possible error message locations
+            // Extract the backend error message (Fastify always sends message or error)
             const backendError =
-                (data?.error && typeof data.error === "string" && data.error) ||
-                (data?.message && typeof data.message === "string" && data.message) ||
+                data?.message ||
+                data?.error ||
                 res.statusText ||
                 "Request failed";
 
-            // Clean Fastify/AJV body paths
+            // Normalize Fastify AJV messages like "body/pwd must NOT have fewer..."
             let message = backendError;
-            if (/^body\//.test(message)) {
+            if (message.startsWith("body/")) {
                 message = message
-                    .replace(/^body\//, "")
+                    .replace(/^body\//, "")   // remove "body/"
                     .replace(/\buser\b/, "User/Email")
-                    .replace(/\bpwd\b/, "Password")
-                    .replace(/\bmust\b/, "must") // preserve rest of text
-                    .trim();
+                    .replace(/\bpwd\b/, "Password");
             }
 
             const err = new Error(message);
             err.status = res.status;
             err.code = data?.code || "HTTP_ERROR";
-            err.error = data?.error || message;
+            err.error = message;
             err.data = data;
             throw err;
         }
-
 
         return data;
     }
