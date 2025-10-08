@@ -103,17 +103,25 @@ export default class Fetch {
 
         if (!res.ok) {
             const backendError =
-                (data && (data.message || data.error)) || res.statusText || "Request failed";
+                (data && (data.error || data.message)) ||
+                res.statusText ||
+                "Request failed";
 
-            const err = new Error(backendError);
+            let message = backendError;
+            if (message.startsWith("body/")) {
+                message = message
+                    .replace(/^body\//, "")
+                    .replace(/\buser\b/, "User/Email")
+                    .replace(/\bpwd\b/, "Password");
+            }
+
+            const err = new Error(message);
             err.status = res.status;
             err.code = data?.code || "HTTP_ERROR";
-            err.error = data?.error || data?.message || backendError;
-            err.message = backendError; // ensure .message always has readable info
+            err.error = data?.error || message;
             err.data = data;
             throw err;
         }
-
 
         return data;
     }
