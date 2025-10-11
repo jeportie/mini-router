@@ -102,11 +102,30 @@ export default class Fetch {
         }
 
         if (!res.ok) {
-            const err = new Error((data?.error || data?.message) || res.statusText || "Request failed");
+            // Extract the backend error message (Fastify always sends message or error)
+            const backendError =
+                data?.message ||
+                data?.error ||
+                res.statusText ||
+                "Request failed";
+
+            // Normalize Fastify AJV messages like "body/pwd must NOT have fewer..."
+            let message = backendError;
+            if (message.startsWith("body/")) {
+                message = message
+                    .replace(/^body\//, "")   // remove "body/"
+                    .replace(/\buser\b/, "User/Email")
+                    .replace(/\bpwd\b/, "Password");
+            }
+
+            const err = new Error(message);
             err.status = res.status;
+            err.code = data?.code || "HTTP_ERROR";
+            err.error = message;
             err.data = data;
             throw err;
         }
+
         return data;
     }
 
