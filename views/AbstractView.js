@@ -72,32 +72,22 @@ export default class AbstractView {
         return ("");
     }
 
-
     /**
-     * Automatically imports and executes all functions
-     * exported from JS modules in ./logic/
+     * Automatically imports and executes all functions exported from ./tasks/
+     * Works in any bundler (esbuild, Vite, Rollup…)
      */
     async #autoRunLogicModules() {
         try {
-            // Get the current view file path dynamically
-            const currentUrl = import.meta.url;
-            const basePath = currentUrl.split("/").slice(0, -1).join("/");
-
-            // Dynamically discover ./logic folder relative to current view
-            const logicPath = `${basePath}/tasks`;
-            const response = await fetch(`${logicPath}/index.js`).catch(() => null);
-
-            if (!response || !response.ok) {
-                console.debug("[View] No logic/index.js found → skipping auto import");
+            // Try to import ./tasks/index.js relative to this file
+            const module = await import("./tasks/index.js").catch(() => null);
+            if (!module) {
+                console.debug("[View] No tasks/index.js found → skipping auto import");
                 return;
             }
 
-            // Import the logic index dynamically
-            const module = await import(`${logicPath}/index.js`);
-
-            // Execute all exported functions
+            // Execute all exported functions, passing current view
             const fnNames = Object.keys(module);
-            console.groupCollapsed(`[View] Auto-executing logic modules (${fnNames.length})`);
+            console.groupCollapsed(`[View] Auto-executing tasks (${fnNames.length})`);
             for (const fnName of fnNames) {
                 const fn = module[fnName];
                 if (typeof fn === "function") {
@@ -111,10 +101,9 @@ export default class AbstractView {
             }
             console.groupEnd();
         } catch (err) {
-            console.error("⚠️ Auto logic import failed:", err);
+            console.error("⚠️ Auto tasks import failed:", err);
         }
     }
-
 
     /**
      * Mount lifecycle
