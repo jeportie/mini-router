@@ -72,31 +72,40 @@ export default class AbstractView {
         return ("");
     }
 
+
     /**
-     * Auto-imports and executes all modules in ./logic/
-     * Each module should export functions (not default exports).
-     * Called automatically before mount().
+     * Automatically imports and executes all functions
+     * exported from JS modules in ./logic/
      */
     async #autoRunLogicModules() {
-        // Resolve path relative to the current view
         try {
-            const logicModules = import.meta.glob("./tasks/*.js");
-            // const logicModules = import.meta.glob("./tasks/*.ts");
-            const modulePaths = Object.keys(logicModules);
-            if (!modulePaths.length) return;
+            // Get the current view file path dynamically
+            const currentUrl = import.meta.url;
+            const basePath = currentUrl.split("/").slice(0, -1).join("/");
 
-            console.groupCollapsed(`[View] Auto-executing logic modules (${modulePaths.length})`);
-            for (const path of modulePaths) {
-                const mod = await logicModules[path]();
-                for (const fnName of Object.keys(mod)) {
-                    const fn = mod[fnName];
-                    if (typeof fn === "function") {
-                        try {
-                            fn(); // execute logic
-                            console.debug("→ executed", fnName, "from", path);
-                        } catch (err) {
-                            console.error("⚠️ Error executing", fnName, err);
-                        }
+            // Dynamically discover ./logic folder relative to current view
+            const logicPath = `${basePath}/tasks`;
+            const response = await fetch(`${logicPath}/index.js`).catch(() => null);
+
+            if (!response || !response.ok) {
+                console.debug("[View] No logic/index.js found → skipping auto import");
+                return;
+            }
+
+            // Import the logic index dynamically
+            const module = await import(`${logicPath}/index.js`);
+
+            // Execute all exported functions
+            const fnNames = Object.keys(module);
+            console.groupCollapsed(`[View] Auto-executing logic modules (${fnNames.length})`);
+            for (const fnName of fnNames) {
+                const fn = module[fnName];
+                if (typeof fn === "function") {
+                    try {
+                        fn(this);
+                        console.debug("→ executed", fnName);
+                    } catch (err) {
+                        console.error("⚠️ Error executing", fnName, err);
                     }
                 }
             }
@@ -105,6 +114,7 @@ export default class AbstractView {
             console.error("⚠️ Auto logic import failed:", err);
         }
     }
+
 
     /**
      * Mount lifecycle
