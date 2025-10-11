@@ -73,82 +73,15 @@ export default class AbstractView {
     }
 
     /**
-     * Automatically imports and executes all functions exported from ./tasks/
-     * Works in any bundler (esbuild, Vite, Rollup…)
+     * Called after the view’s HTML has been inserted into the DOM.
+     * Bind event listeners, initialize widgets, etc. here.
      */
-    async #autoRunLogicModules() {
-        try {
-            // Try to import ./tasks/index.js relative to this file
-            const module = await import("./tasks/index.js").catch(() => null);
-            if (!module) {
-                console.debug("[View] No tasks/index.js found → skipping auto import");
-                return;
-            }
-
-            // Execute all exported functions, passing current view
-            const fnNames = Object.keys(module);
-            console.groupCollapsed(`[View] Auto-executing tasks (${fnNames.length})`);
-            for (const fnName of fnNames) {
-                const fn = module[fnName];
-                if (typeof fn === "function") {
-                    try {
-                        fn(this);
-                        console.debug("→ executed", fnName);
-                    } catch (err) {
-                        console.error("⚠️ Error executing", fnName, err);
-                    }
-                }
-            }
-            console.groupEnd();
-        } catch (err) {
-            console.error("⚠️ Auto tasks import failed:", err);
-        }
-    }
-
-    /**
-     * Mount lifecycle
-     * Override this for additional custom setup, but call super.mount()
-     * to ensure logic modules are executed automatically.
-     */
-    async mount() {
-        await this.#autoRunLogicModules();
-    }
+    mount() { }
 
     /**
      * Called before the view is destroyed.
      * Cleanup timers, sockets, and event listeners here.
      */
     destroy() { }
-
-    /* ---------------------------------------------------------------------- */
-    /* 🧩 UI Utilities (available in all views)                                */
-    /* ---------------------------------------------------------------------- */
-
-    /**
-     * Fade out and remove an element.
-     * @param {HTMLElement} el
-     * @param {number} duration
-     */
-    fadeOut(el, duration = 300) {
-        if (!el) return;
-        el.style.transition = `opacity ${duration}ms ease`;
-        el.style.opacity = "0";
-        setTimeout(() => el.remove(), duration);
-    }
-
-    /**
-     * Show an alert message inside a container.
-     * @param {HTMLElement} container
-     * @param {string} message
-     * @param {"success"|"error"|"info"|"warning"} type
-     */
-    showAlert(container, message, type = "info") {
-        if (!container) return;
-        const div = document.createElement("div");
-        div.textContent = message;
-        div.className = `ui-alert ui-alert-${type} mb-4`;
-        container.prepend(div);
-        setTimeout(() => this.fadeOut(div, 500), 4000);
-    }
 }
 
