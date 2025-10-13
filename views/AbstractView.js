@@ -6,7 +6,7 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/14 18:36:41 by jeportie          #+#    #+#             //
-//   Updated: 2025/10/14 00:41:41 by jeportie         ###   ########.fr       //
+//   Updated: 2025/10/14 00:53:38 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
@@ -74,8 +74,6 @@ export default class AbstractView {
      * Builds runtime context and orchestrates tasks automatically.
      */
     async mount({ tasks, ASSETS } = {}) {
-        (this.layout?.reloadOnExit?.)?.();
-
         const context = {
             ASSETS,
             addCleanup: (fn) => this.addCleanup(fn),
