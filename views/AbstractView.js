@@ -77,6 +77,7 @@ export default class AbstractView {
         const context = {
             ASSETS,
             addCleanup: (fn) => this.addCleanup(fn),
+            view: this,
         };
 
         // 🔧 Init tasks
