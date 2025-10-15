@@ -136,6 +136,7 @@ export default class Router {
      * @param {{ replace?: boolean, state?: any, force?: boolean }} [opts]
      */
     async navigateTo(url, opts = {}) {
+        console.info("[Router:navigateTo]", url, opts);
         const force = opts.force === true;
         if (this.#state.busy && !force)
             return;
@@ -149,6 +150,7 @@ export default class Router {
         if (samePath && !opts.replace && !force) {
             return; // nothing to do
         }
+        console.log("Nothing to do")
         if (this.#onBeforeNavigate) {
             this.logger.info?.("[Router] onBeforeNavigate check for", url);
             const result = await this.#onBeforeNavigate(url);
@@ -165,8 +167,10 @@ export default class Router {
             this.#state.currentView?.destroy?.();
             this.#state.currentView = null;
             await this.#render();
-        } else
+        } else {
+            console.info("[Router:navigateTo] Normal render branch", { samePath, force });
             this.#render();
+        }
     }
 
 
