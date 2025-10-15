@@ -52,6 +52,7 @@ class MiniRouterElement extends HTMLElement {
             return (Promise.resolve());
         this._ensureRouter();
         this._started = true;
+        window.navigateTo = this._router.navigateTo.bind(this._router);
         return (this._router.start());
     }
 
