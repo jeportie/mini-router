@@ -129,52 +129,44 @@ export default class Router {
         document.body.removeEventListener("click", this.#onClick);
     }
 
-
     /**
      * Navigate programmatically.
+     * Always re-renders the view, even when navigating to the same path.
      * @param {string} url - The target URL or path.
-     * @param {{ replace?: boolean, state?: any, force?: boolean }} [opts]
+     * @param {{ replace?: boolean, state?: any }} [opts]
      */
-
-    async navigateTo(url, opts) {
-        if (opts == null || typeof opts !== "object") opts = {};
+    async navigateTo(url, opts = {}) {
         console.info("[Router:navigateTo]", url, opts);
-        const force = opts.force === true;
-        if (this.#state.busy && !force)
-            return;
+
         const next = new URL(url, location.origin);
         const curr = location;
+
         const samePath =
             next.pathname === curr.pathname &&
             next.search === curr.search &&
             next.hash === curr.hash;
 
-        if (samePath && !opts.replace && !force) {
-            return; // nothing to do
-        }
-        console.log("Nothing to do")
+        // ── Always navigate ────────────────────────────────
         if (this.#onBeforeNavigate) {
             this.logger.info?.("[Router] onBeforeNavigate check for", url);
             const result = await this.#onBeforeNavigate(url);
             if (result === false)
                 return;
         }
+
+        // ── Replace or push to history ─────────────────────
         if (opts.replace)
             history.replaceState(opts.state ?? null, "", url);
-        else
+        else if (!samePath)
             history.pushState(opts.state ?? null, "", url);
+        // if samePath, skip pushing but still re-render
 
-        if (force && samePath) {
-            this.logger.info?.("[Router] Forcing re-render of current path:", url);
-            this.#state.currentView?.destroy?.();
-            this.#state.currentView = null;
-            await this.#render();
-        } else {
-            console.info("[Router:navigateTo] Normal render branch", { samePath, force });
-            this.#render();
-        }
+        // ── Force new render ───────────────────────────────
+        this.logger.info?.("[Router] Forcing render for", url);
+        this.#state.currentView?.destroy?.();
+        this.#state.currentView = null;
+        await this.#render();
     }
-
 
     async #render() {
         this.#state.renderId++;
