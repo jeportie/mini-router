@@ -129,20 +129,24 @@ export default class Router {
         document.body.removeEventListener("click", this.#onClick);
     }
 
+
     /**
-     * @param {string} url
-     * @param {{ replace?: boolean, state?: any }} [opts]
+     * Navigate programmatically.
+     * @param {string} url - The target URL or path.
+     * @param {{ replace?: boolean, state?: any, force?: boolean }} [opts]
      */
-    async navigateTo(url, opts) {
-        const force = opts?.force === true;
+    async navigateTo(url, opts = {}) {
+        const force = opts.force === true;
         if (this.#state.busy && !force)
             return;
         const next = new URL(url, location.origin);
         const curr = location;
-        if (next.pathname === curr.pathname &&
+        const samePath =
+            next.pathname === curr.pathname &&
             next.search === curr.search &&
-            next.hash === curr.hash &&
-            !opts?.replace) {
+            next.hash === curr.hash;
+
+        if (samePath && !opts.replace && !force) {
             return; // nothing to do
         }
         if (this.#onBeforeNavigate) {
@@ -151,13 +155,16 @@ export default class Router {
             if (result === false)
                 return;
         }
-        if (opts?.replace) {
-            history.replaceState(opts?.state ?? null, "", url);
-        } else {
-            history.pushState(opts?.state ?? null, "", url);
-        }
-        this.#render();
+        if (opts.replace)
+            history.replaceState(opts.state ?? null, "", url);
+        else
+            history.pushState(opts.state ?? null, "", url);
+        if (force && samePath)
+            await this.#render();
+        else
+            this.#render();
     }
+
 
     async #render() {
         this.#state.renderId++;
