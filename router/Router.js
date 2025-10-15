@@ -135,7 +135,9 @@ export default class Router {
      * @param {string} url - The target URL or path.
      * @param {{ replace?: boolean, state?: any, force?: boolean }} [opts]
      */
-    async navigateTo(url, opts = {}) {
+
+    async navigateTo(url, opts) {
+        if (opts == null || typeof opts !== "object") opts = {};
         console.info("[Router:navigateTo]", url, opts);
         const force = opts.force === true;
         if (this.#state.busy && !force)
