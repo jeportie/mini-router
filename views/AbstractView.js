@@ -102,33 +102,40 @@ export default class AbstractView {
 
     /**
      * Replace only the routed outlet content, preserving layout background (canvas, etc.)
+     * Adds a small fade transition and resolves when the swap is complete.
      */
     swapContent(html, selector = "[data-router-outlet]") {
-        const outlet = document.querySelector(selector);
-        if (!outlet) {
-            console.warn("[swapContent] Outlet not found:", selector);
-            return;
-        }
+        return new Promise((resolve) => {
+            const outlet = document.querySelector(selector);
+            if (!outlet) {
+                console.warn("[swapContent] Outlet not found:", selector);
+                return resolve(null);
+            }
 
-        // Optional: use Tailwind fade transition
-        outlet.setAttribute("data-trans", "fade");
-        outlet.classList.add("route-leave");
-        requestAnimationFrame(() => {
-            outlet.classList.add("route-leave-active");
-            setTimeout(() => {
-                outlet.innerHTML = html;
-                outlet.classList.remove("route-leave", "route-leave-active");
-                outlet.classList.add("route-enter");
-                requestAnimationFrame(() => {
-                    outlet.classList.add("route-enter-active");
-                    setTimeout(() => {
-                        outlet.classList.remove("route-enter", "route-enter-active");
-                    }, 300);
-                });
-            }, 300);
+            // Optional: Tailwind fade transition classes
+            outlet.setAttribute("data-trans", "fade");
+            outlet.classList.add("route-leave");
+
+            requestAnimationFrame(() => {
+                outlet.classList.add("route-leave-active");
+
+                setTimeout(() => {
+                    outlet.innerHTML = html;
+                    outlet.classList.remove("route-leave", "route-leave-active");
+
+                    outlet.classList.add("route-enter");
+                    requestAnimationFrame(() => {
+                        outlet.classList.add("route-enter-active");
+
+                        setTimeout(() => {
+                            outlet.classList.remove("route-enter", "route-enter-active");
+                            resolve(outlet); // ✅ Promise resolved after transition
+                        }, 300);
+                    });
+                }, 300);
+            });
         });
     }
-
 
     /**
      * Generic destroy lifecycle.
