@@ -99,6 +99,12 @@ export default class AbstractView {
         await this.onReady(context);
     }
 
+    swapContent(html) {
+        const root = document.querySelector("#app"); // or your router outlet
+        if (!root) return;
+        root.innerHTML = html;
+    }
+
     /**
      * Generic destroy lifecycle.
      * Safely executes registered cleanups and teardown tasks.
