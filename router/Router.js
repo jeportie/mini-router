@@ -159,9 +159,13 @@ export default class Router {
             history.replaceState(opts.state ?? null, "", url);
         else
             history.pushState(opts.state ?? null, "", url);
-        if (force && samePath)
+
+        if (force && samePath) {
+            this.logger.info?.("[Router] Forcing re-render of current path:", url);
+            this.#state.currentView?.destroy?.();
+            this.#state.currentView = null;
             await this.#render();
-        else
+        } else
             this.#render();
     }
 
