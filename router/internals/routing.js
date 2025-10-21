@@ -82,15 +82,24 @@ export function expandRoutes(routes, base = "/", parents = []) {
  * @param {any|(()=>Promise<any>)} maybe
  * @returns {Promise<any|null>}
  */
+
 export async function ensureComponent(maybe) {
     if (!maybe)
         return (null);
     // Heuristic: treat zero-arg functions as lazy loaders
     if (typeof maybe === "function" && maybe.length === 0) {
+        // 🧠 cache module resolutions so dynamic imports are stable
+        if (!ensureComponent._cache) ensureComponent._cache = new WeakMap();
+        if (ensureComponent._cache.has(maybe)) {
+            return ensureComponent._cache.get(maybe);
+        }
+
         const mod = await maybe();
-        return (mod?.default ?? mod);
+        const ctor = mod?.default ?? mod;
+        ensureComponent._cache.set(maybe, ctor);
+        return ctor;
     }
-    return (maybe);
+    return maybe;
 }
 
 /**
