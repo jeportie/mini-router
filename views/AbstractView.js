@@ -6,7 +6,7 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/14 18:36:41 by jeportie          #+#    #+#             //
-//   Updated: 2025/10/14 00:53:38 by jeportie         ###   ########.fr       //
+//   Updated: 2025/11/04 09:18:37 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
@@ -68,6 +68,21 @@ export default class AbstractView {
      * Runs before cleanup — for global teardown logic.
      */
     async onTeardown(_context) { }
+
+
+    /** Register a named subcomponent for this view (like a table, form, modal, etc.) */
+    registerComponent(name, instance) {
+        if (!this._components)
+            this._components = {};
+        this._components[name] = instance;
+        if (instance.teardown)
+            this.addCleanup(() => instance.teardown());
+    }
+
+    /** Retrieve a registered component */
+    getComponent(name) {
+        return this._components?.[name];
+    }
 
     /**
      * Generic mount lifecycle.
