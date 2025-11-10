@@ -6,7 +6,7 @@
 //   By: jeportie <jeportie@42.fr>                  +#+  +:+       +#+        //
 //                                                +#+#+#+#+#+   +#+           //
 //   Created: 2025/08/22 17:23:51 by jeportie          #+#    #+#             //
-//   Updated: 2025/09/15 14:06:53 by jeportie         ###   ########.fr       //
+//   Updated: 2025/11/10 15:23:45 by jeportie         ###   ########.fr       //
 //                                                                            //
 // ************************************************************************** //
 
@@ -15,6 +15,7 @@ export { default as Router } from "./router/Router.js";
 
 // Web Component
 export { defineMiniRouter } from "./wc/mini-router.js";
+export { setupMiniRouter } from "./wc/setup.js";
 
 // Base classes
 export { default as AbstractView } from "./views/AbstractView.js";
