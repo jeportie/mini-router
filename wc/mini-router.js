@@ -48,7 +48,7 @@ class MiniRouterElement extends HTMLElement {
     }
     disconnectedCallback() { this.stop(); }
 
-    start() {
+    async start() {
         if (this._started)
             return (Promise.resolve());
         this._ensureRouter();
@@ -57,7 +57,14 @@ class MiniRouterElement extends HTMLElement {
             console.log("[window.navigateTo]", url, opts);
             return this._router.navigateTo(url, opts);
         };
-        return (this._router.start());
+        try {
+            await this._router.start();
+            this.dispatchEvent(new CustomEvent("router:started"));
+        } catch (err) {
+            this._renderStartError(err);
+            // don't rethrow; main can call start() without catch
+            this.dispatchEvent(new CustomEvent("router:error", { detail: err }));
+        }
     }
 
     stop() { if (!this._started) return; this._router?.stop(); this._started = false; }
@@ -75,6 +82,26 @@ class MiniRouterElement extends HTMLElement {
 
     get animationHook() { return this._animationHook; }
     set animationHook(h) { this._animationHook = h || new AbstractAnimationHook(); if (this._router) this._recreate(); }
+
+    _renderStartError(err) {
+        this.innerHTML = `
+            <div class="min-h-screen flex items-center justify-center p-6">
+                <div
+                    class="w-full max-w-md rounded-2xl border border-red-200 bg-red-50/80 p-6 shadow-lg"
+                    role="alert"
+                    aria-live="assertive"
+                >
+                    <h2 class="text-lg font-semibold text-red-800 flex items-center justify-center gap-2">
+                        <span aria-hidden="true">⚠️</span>
+                        <span>App failed to start</span>
+                    </h2>            
+                    <pre class="mt-3 text-sm text-red-700 bg-red-100/70 rounded-md p-3 overflow-x-auto whitespace-pre-wrap break-words">
+                        ${(err && err.message) || "Unknown error"}
+                    </pre>
+                </div>
+            </div>
+        `;
+    }
 
     _ensureRouter() {
         if (this._router) return;
