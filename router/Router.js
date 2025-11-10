@@ -15,15 +15,8 @@ import { renderPipeline } from "./internals/render.js";
 import { createHandlers } from "./internals/events.js";
 import AbstractAnimationHook from "../transitions/AbstractAnimationHook.js";
 
-/**
- * @typedef RouterOptions
- * @prop {RouteDef[]} routes
- * @prop {string} [mountSelector="#app"]
- * @prop {string} [linkSelector="[data-link]"]
- * @prop {(to:string)=>boolean|void|Promise<boolean|void>} [onBeforeNavigate]
- * @prop {AbstractAnimationHook} [animationHook]   // pluggable animation hook
- * @prop {string} [notFoundPath]
- */
+const defaultOnBeforeNavigate = (to) => !to.startsWith("/api/");
+
 export default class Router {
     logger;
     #routes = [];
@@ -79,7 +72,10 @@ export default class Router {
         this.#mountEl = /** @type {HTMLElement} */ (m);
 
         this.#linkSelector = opts.linkSelector ?? "[data-link]";
-        this.#onBeforeNavigate = opts.onBeforeNavigate;
+        this.#onBeforeNavigate =
+            typeof opts.onBeforeNavigate === "function"
+                ? opts.onBeforeNavigate
+                : defaultOnBeforeNavigate;
 
         // resolve animation hook (default = hard swap)
         this.#animationHook =

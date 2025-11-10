@@ -23,6 +23,7 @@ class MiniRouterElement extends HTMLElement {
         this._router = null;
         this._routes = [];
         this._linkSelector = "[data-link]";
+        this._onBeforeNavigate = defaultOnBeforeNavigate;
         this._onBeforeNavigate = undefined;
         this._animationHook = new AbstractAnimationHook(); // <—
         this._started = false;

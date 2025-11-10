@@ -11,8 +11,7 @@
         "router/",
         "wc/",
         "views/",
-        "transitions",
-        "auth"
+        "transitions"
     ],
     "keywords": [
         "spa",
