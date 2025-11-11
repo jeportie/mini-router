@@ -57,7 +57,7 @@ export default class AbstractLayout {
      * Bind DOM events after the layout has been inserted into the DOM.
      * Override in child classes to attach event listeners.
      */
-    mount() { }
+    async mount() { }
 
     /**
      * Cleanup timers, sockets, or event listeners before the layout is destroyed.
