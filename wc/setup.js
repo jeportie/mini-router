@@ -22,7 +22,8 @@ export function setupMiniRouter(el, {
     beforeStart = [],
     afterStart = [],
 } = {}) {
-    if (!el) throw new Error("setupMiniRouter: element is required");
+    if (!el)
+        throw new Error("setupMiniRouter: element is required");
     el.routes = Array.isArray(routes) ? routes : [];
     el.linkSelector = linkSelector;
 

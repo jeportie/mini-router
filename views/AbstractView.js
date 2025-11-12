@@ -26,8 +26,10 @@ export default class AbstractView {
 
     constructor(ctx, logger = console) {
         this.#ctx = ctx;
-        this.#logger.withPrefix("[View] ") = logger
-        this.#logger.info("Created:", ctx);
+        this.#logger = (logger && typeof logger.withPrefix === "function")
+            ? logger.withPrefix("[View]")
+            : logger;
+        this.#logger.debug("Created:", ctx);
     }
 
     get logger() { return this.#logger; }
@@ -105,6 +107,8 @@ export default class AbstractView {
                 }
             }
         }
+
+        this.#logger.info("This is a test");
 
         await this.onInit(context);
 

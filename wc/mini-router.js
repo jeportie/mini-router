@@ -16,7 +16,8 @@ import AbstractAnimationHook from "../transitions/AbstractAnimationHook.js";
 const defaultOnBeforeNavigate = (to) => !to.startsWith("/api/");
 
 export function defineMiniRouter(tagName = "mini-router") {
-    if (!customElements.get(tagName)) customElements.define(tagName, MiniRouterElement);
+    if (!customElements.get(tagName))
+        customElements.define(tagName, MiniRouterElement);
 }
 
 class MiniRouterElement extends HTMLElement {
