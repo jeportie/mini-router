@@ -26,8 +26,8 @@ export default class AbstractView {
 
     constructor(ctx, logger = console) {
         this.#ctx = ctx;
-        this.#logger = logger
-        this.#logger.info("[View] Created:", ctx);
+        this.#logger.withPrefix("[View] ") = logger
+        this.#logger.info("Created:", ctx);
     }
 
     get logger() { return this.#logger; }
