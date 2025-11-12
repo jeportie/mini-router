@@ -39,10 +39,10 @@ export default class Router {
 
     constructor(opts) {
         if (!opts || !Array.isArray(opts.routes) || opts.routes.length === 0) {
-            throw new Error("Router: you must provide a non-empty routes array.");
+            throw new Error("[Router] you must provide a non-empty routes array.");
         }
-        this.logger = opts.logger ?? console;
-        this.logger.info?.("[Router] Initializing with", opts.routes.length, "routes");
+        this.logger = opts.logger.withPrefix('[Router]') ?? console;
+        this.logger.info?.("Initializing with", opts.routes.length, "routes");
 
         const flat = expandRoutes(opts.routes, "/");
         this.#routes = flat.map((r) => {
@@ -101,7 +101,7 @@ export default class Router {
     async start() {
         if (this.#started)
             return;
-        this.logger.info?.("[Router] Starting...");
+        this.logger.info?.("Starting...");
         for (const fn of this.#beforeStartHooks) {
             await fn();
         }
@@ -119,7 +119,7 @@ export default class Router {
     stop() {
         if (!this.#started)
             return;
-        this.logger.info?.("[Router] Stopping router");
+        this.logger.info?.("Stopping router");
         this.#started = false;
         window.removeEventListener("popstate", this.#onPopState);
         document.body.removeEventListener("click", this.#onClick);
@@ -132,7 +132,7 @@ export default class Router {
      * @param {{ replace?: boolean, state?: any }} [opts]
      */
     async navigateTo(url, opts = {}) {
-        this.logger.info?.("[Router:navigateTo]", url, opts);
+        this.logger.info?.("navigateTo:", url, opts);
 
         const next = new URL(url, location.origin);
         const curr = location;
@@ -144,7 +144,7 @@ export default class Router {
 
         // ── Always navigate ────────────────────────────────
         if (this.#onBeforeNavigate) {
-            this.logger.info?.("[Router] onBeforeNavigate check for", url);
+            this.logger.info?.("onBeforeNavigate check for", url);
             const result = await this.#onBeforeNavigate(url);
             if (result === false)
                 return;
@@ -158,7 +158,7 @@ export default class Router {
         // if samePath, skip pushing but still re-render
 
         // ── Force new render ───────────────────────────────
-        this.logger.info?.("[Router] Forcing render for", url);
+        this.logger.info?.("Forcing render for", url);
         this.#state.currentView?.destroy?.();
         this.#state.currentView = null;
         await this.#render();
@@ -167,7 +167,7 @@ export default class Router {
     async #render() {
         this.#state.renderId++;
         this.#state.busy = true;
-        this.logger.info?.("[Router] Rendering path:", location.pathname);
+        this.logger.info?.("Rendering path:", location.pathname);
         await renderPipeline(
             {
                 logger: this.logger,
