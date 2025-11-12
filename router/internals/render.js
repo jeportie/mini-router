@@ -18,8 +18,8 @@ import { domCommit } from "./pipelines/domCommit.js";
 /**
  * Resolve the route match for the current pathname.
  */
-function resolveMatch(routes, notFound) {
-    const pathname = normalize(window.location.pathname);
+function resolveMatch(routes, notFound, logger) {
+    const pathname = normalize(window.location.pathname, logger);
     const match = matchPathname(pathname, routes);
 
     return {
@@ -47,7 +47,7 @@ function handleNotFound(route, mountEl, state) {
 async function applyGuards({ parents, route, ctx, rid, state, navigate, logger }) {
     logger.debug?.("Running guards for route:", route.fullPath);
 
-    const res = await runGuards(parents, route, ctx);
+    const res = await runGuards(parents, route, ctx, logger);
 
     if (rid !== state.renderId) {
         state.busy = false;
@@ -161,15 +161,15 @@ export async function renderPipeline(env, rid) {
     const log = logger.withPrefix("[Render]");
     log.info?.("Starting render pipeline...");
 
-    const { pathname, route, params } = resolveMatch(routes, notFound);
+    const { pathname, route, params } = resolveMatch(routes, notFound, logger);
     log.debug?.("Resolved route:", pathname);
 
     if (handleNotFound(route, mountEl, state))
         return;
 
     const maybeLayout = route.parents?.at(-1)?.layout ?? null;
-    const nextLayoutCtor = maybeLayout ? await ensureComponent(maybeLayout) : null;
-    const ctx = buildContext(pathname, params);
+    const nextLayoutCtor = maybeLayout ? await ensureComponent(maybeLayout, logger) : null;
+    const ctx = buildContext(pathname, params, logger);
     log.debug?.("Built route context:", ctx);
 
     const guardStatus = await applyGuards({

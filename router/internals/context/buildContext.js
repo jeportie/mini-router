@@ -18,11 +18,11 @@ import { parseQuery } from "../routing.js";
  * @param {string} pathname
  * @param {Record<string,string>} params
  */
-export function buildContext(pathname, params) {
+export function buildContext(pathname, params, logger) {
     return {
         path: pathname,
         params,
-        query: parseQuery(window.location.search),
+        query: parseQuery(window.location.search, logger),
         hash: (window.location.hash || "").replace(/^#/, ""),
         state: history.state,
     };

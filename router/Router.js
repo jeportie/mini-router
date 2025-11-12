@@ -48,11 +48,11 @@ export default class Router {
         log.info?.("Initializing with", opts.routes.length, "routes");
 
         // ── Expand route tree ────────────────────────────────────────────────
-        const flat = expandRoutes(opts.routes, "/");
+        const flat = expandRoutes(opts.routes, "/", logger);
 
         this.#routes = flat.map((r) => {
             const { regex, keys, isCatchAll } =
-                pathToRegex(r.fullPath === "/*" ? "*" : r.fullPath);
+                pathToRegex(r.fullPath === "/*" ? "*" : r.fullPath, logger);
 
             return {
                 path: r.path,
@@ -109,6 +109,7 @@ export default class Router {
             linkSelector: this.#linkSelector,
             onNavigate: (to) =>
                 typeof to === "string" ? this.navigateTo(to) : this.#render(),
+            logger: this.logger,
         });
 
         this.#onPopState = onPopState;

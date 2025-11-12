@@ -10,16 +10,13 @@
 //                                                                            //
 // ************************************************************************** //
 
-import { logger } from "@system/logger";
-
-const log = logger.withPrefix("[Events]");
-
 /**
  * Creates DOM event handlers for popstate and delegated link clicks.
  *
  * @param {{ linkSelector: string, onNavigate: (to:string|symbol)=>void }} deps
  */
-export function createHandlers({ linkSelector, onNavigate }) {
+export function createHandlers({ linkSelector, onNavigate, logger }) {
+    const log = logger.withPrefix("[Events]");
     log.debug?.("Creating event handlers for selector:", linkSelector);
 
     const onPopState = () => {
