@@ -18,12 +18,16 @@ export function setupMiniRouter(el, {
     routes,
     linkSelector = "[data-link]",
     animationHook,
+    logger = console,
     beforeStart = [],
     afterStart = [],
 } = {}) {
     if (!el) throw new Error("setupMiniRouter: element is required");
     el.routes = Array.isArray(routes) ? routes : [];
     el.linkSelector = linkSelector;
+
+    el.logger = logger ?? console;
+
     if (animationHook) el.animationHook = animationHook;
     beforeStart.forEach(fn => el.beforeStart(fn));
     afterStart.forEach(fn => el.afterStart(fn));

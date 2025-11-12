@@ -20,16 +20,17 @@
  */
 
 export default class AbstractView {
-    /** @type {ViewCtx} */
     #ctx;
-
-    /** @type {(() => void)[]} */
     #cleanups = [];
+    #logger;
 
-    constructor(ctx) {
+    constructor(ctx, logger = console) {
         this.#ctx = ctx;
-        console.debug?.("[View] Created:", ctx);
+        this.#logger = logger
+        this.#logger.debug?.("[View] Created:", ctx);
     }
+
+    get logger() { return this.#logger; }
 
     /** Read-only context accessor */
     get ctx() {
@@ -123,7 +124,7 @@ export default class AbstractView {
         return new Promise((resolve) => {
             const outlet = document.querySelector(selector);
             if (!outlet) {
-                console.warn("[swapContent] Outlet not found:", selector);
+                this.#logger.warn("[swapContent] Outlet not found:", selector);
                 return resolve(null);
             }
 
@@ -159,7 +160,7 @@ export default class AbstractView {
     async destroy({ tasks } = {}) {
         const teardown = tasks?.teardown ?? [];
 
-        console.log(
+        this.#logger?.info(
             `[${this.constructor.name}] Destroy → cleanups:${this.#cleanups.length}, teardown:${teardown.length}`
         );
 
@@ -168,7 +169,7 @@ export default class AbstractView {
             try {
                 fn();
             } catch (err) {
-                console.warn(`[${this.constructor.name}] Cleanup error:`, err);
+                this.#logger.warn(`[${this.constructor.name}] Cleanup error:`, err);
             }
         }
 
@@ -179,7 +180,7 @@ export default class AbstractView {
             try {
                 fn();
             } catch (err) {
-                console.warn(`[${this.constructor.name}] Teardown error:`, err);
+                this.#logger.warn(`[${this.constructor.name}] Teardown error:`, err);
             }
         }
 

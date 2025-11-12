@@ -132,7 +132,7 @@ export default class Router {
      * @param {{ replace?: boolean, state?: any }} [opts]
      */
     async navigateTo(url, opts = {}) {
-        console.info("[Router:navigateTo]", url, opts);
+        this.logger.info?.("[Router:navigateTo]", url, opts);
 
         const next = new URL(url, location.origin);
         const curr = location;

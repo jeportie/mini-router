@@ -60,24 +60,25 @@ function teardownCurrent(state, nextLayoutCtor) {
     if (!reuse) state.currentLayouts = [];
 }
 
-async function ensureLayouts(parents, ctx, rid, state) {
+async function ensureLayouts(parents, ctx, rid, state, logger) {
     const out = [];
     for (const p of parents || []) {
         if (!p.layout) continue;
         const Ctor = await (typeof p.layout === "function" && p.layout.length === 0
             ? p.layout().then(m => m?.default ?? m) : p.layout);
         if (rid !== state.renderId) return { stale: true, layouts: [] };
-        out.push(new Ctor(ctx));
+        out.push(new Ctor(ctx, logger));
     }
     return { stale: false, layouts: out };
 }
 
-async function ensureLeaf(route, ctx, rid, state) {
+async function ensureLeaf(route, ctx, rid, state, logger) {
     const loader = route.component || route.view;
     const Ctor = await (typeof loader === "function" && loader.length === 0
         ? loader().then(m => m?.default ?? m) : loader);
-    if (rid !== state.renderId) return { stale: true, leaf: null };
-    return { stale: false, leaf: new Ctor(ctx) };
+    if (rid !== state.renderId)
+        return { stale: true, leaf: null };
+    return { stale: false, leaf: new Ctor(ctx, logger) };
 }
 
 /**
@@ -124,9 +125,9 @@ export async function renderPipeline(env, rid) {
         commit: async ({ targetEl, leafOnly } = {}) => {
             const { stale: s1, layouts } = leafOnly
                 ? { stale: false, layouts: [] }
-                : await ensureLayouts(route.parents, ctx, rid, state);
+                : await ensureLayouts(route.parents, ctx, rid, state, logger);
             if (s1 || helpers.isStale()) return;
-            const { stale: s2, leaf } = await ensureLeaf(route, ctx, rid, state);
+            const { stale: s2, leaf } = await ensureLeaf(route, ctx, rid, state, logger);
             if (s2 || helpers.isStale()) return;
 
             const committed = await domCommit({ mountEl, targetEl, layouts, leaf, rid, state, leafOnly });

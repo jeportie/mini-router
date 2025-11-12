@@ -17,15 +17,15 @@
  * for the current routed view.
  */
 export default class AbstractLayout {
-    /** @type {*} */
     #ctx;
+    #logger;
 
-    /**
-     * @param {*} ctx - Optional context passed by the router
-     */
-    constructor(ctx) {
+    constructor(ctx, logger = console) {
         this.#ctx = ctx;
+        this.#logger = logger;
     }
+
+    get logger() { return this.#logger; }
 
     /**
      * Read-only access to the layout context.
@@ -63,5 +63,5 @@ export default class AbstractLayout {
      * Cleanup timers, sockets, or event listeners before the layout is destroyed.
      * Override in child classes to implement custom cleanup logic.
      */
-    destroy() { console.debug?.("[Layout] destroy() called"); }
+    destroy() { this.#logger.debug?.("[Layout] destroy() called"); }
 }

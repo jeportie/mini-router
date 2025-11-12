@@ -36,7 +36,9 @@ class MiniRouterElement extends HTMLElement {
     }
 
     set logger(v) {
-        this._logger = v || console; if (this._router) this._recreate();
+        this._logger = v || console;
+        if (this._router)
+            this._recreate();
     }
 
     static get observedAttributes() { return ["autostart"]; }
@@ -55,7 +57,7 @@ class MiniRouterElement extends HTMLElement {
         this._ensureRouter();
         this._started = true;
         window.navigateTo = (url, opts = {}) => {
-            console.log("[window.navigateTo]", url, opts);
+            this.logger.info("[window.navigateTo]", url, opts);
             return this._router.navigateTo(url, opts);
         };
         try {
