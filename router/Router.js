@@ -48,7 +48,7 @@ export default class Router {
         log.info?.("Initializing with", opts.routes.length, "routes");
 
         // ── Expand route tree ────────────────────────────────────────────────
-        const flat = expandRoutes(opts.routes, "/", this.logger);
+        const flat = expandRoutes(opts.routes, "/", [], this.logger);
 
         this.#routes = flat.map((r) => {
             const { regex, keys, isCatchAll } =
